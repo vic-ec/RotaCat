@@ -5,6 +5,7 @@ import { fetchOnShiftBoard, startsInLabel } from '../lib/onShiftBoard'
 import { shiftStartLabel } from '../lib/myYear'
 import { formatLocalDate } from '../lib/dateRange'
 import ProfileAvatar from './ProfileAvatar'
+import ContactSheet from './ContactSheet'
 import { PanelRows, PanelRow } from './PanelRows'
 
 // The admin Dashboard's "On shift": who is on now (grouped by shift, each
@@ -36,10 +37,14 @@ function LateClock() {
   )
 }
 
-// One line per person.
-function PersonLine({ person }) {
-  return (
-    <li className="flex min-w-0 items-center gap-2.5" aria-label={`${person.label}${person.late ? ' · late arrival logged' : ''}`}>
+// One line per person. Someone with contact details on record (a doctor,
+// or a locum with an account or a contact record) is a button that opens
+// their contact card; an open slot is not.
+function PersonLine({ person, onContact }) {
+  const label = `${person.label}${person.late ? ' · late arrival logged' : ''}`
+  const contactable = Boolean(onContact && (person.profileId || person.contactId))
+  const body = (
+    <>
       <span className="relative flex-shrink-0">
         <Face person={person} size={32} />
         {person.late && <LateClock />}
@@ -48,6 +53,22 @@ function PersonLine({ person }) {
         <span className={`block truncate whitespace-nowrap text-sm font-semibold ${person.kind === 'open' ? 'text-flagRed' : 'text-ink'}`}>{person.name}</span>
         <span className="block truncate whitespace-nowrap text-xs text-ink-muted">{person.meta}</span>
       </span>
+    </>
+  )
+  return (
+    <li className="min-w-0">
+      {contactable ? (
+        <button
+          type="button"
+          onClick={() => onContact({ profileId: person.profileId, contactId: person.contactId, name: person.name, meta: person.meta })}
+          aria-label={`${label}. Contact details`}
+          className="-m-1 flex w-[calc(100%+0.5rem)] min-w-0 items-center gap-2.5 rounded-lg p-1 text-left transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken"
+        >
+          {body}
+        </button>
+      ) : (
+        <span className="flex min-w-0 items-center gap-2.5" aria-label={label}>{body}</span>
+      )}
     </li>
   )
 }
@@ -75,6 +96,8 @@ export default function OnShiftPanel() {
   const [board, setBoard] = useState(null)
   const [error, setError] = useState('')
   const [now, setNow] = useState(() => new Date())
+  // The contact card open from a name: { profileId | contactId, name, meta }.
+  const [contact, setContact] = useState(null)
 
   useEffect(() => {
     let cancelled = false
@@ -112,22 +135,35 @@ export default function OnShiftPanel() {
             )}
             {board.now.map(g => (
               <PanelRow key={g.key} testId="on-shift-group" label={<ShiftLabel group={g} tag="Now" />}>
-                {g.people.map(p => <PersonLine key={p.key} person={p} />)}
+                {g.people.map(p => <PersonLine key={p.key} person={p} onContact={setContact} />)}
               </PanelRow>
             ))}
             {board.next.map(g => (
               <PanelRow key={g.key} testId="on-shift-group" tint label={<ShiftLabel group={g} tag={`Next · ${startsInLabel(g.start, now)}`} />}>
-                {g.people.map(p => <PersonLine key={p.key} person={p} />)}
+                {g.people.map(p => <PersonLine key={p.key} person={p} onContact={setContact} />)}
               </PanelRow>
             ))}
           </PanelRows>
         )}
         {board?.consultant && (
           <p className="border-t border-slate-line px-4 py-2.5 text-xs text-ink-muted" data-testid="on-call">
-            On call Consultant: <span className="font-semibold text-ink">{board.consultant}</span>
+            On call Consultant:{' '}
+            {board.consultantId ? (
+              <button
+                type="button"
+                onClick={() => setContact({ profileId: board.consultantId, name: board.consultant, meta: 'Consultant on call' })}
+                aria-label={`${board.consultant}, consultant on call. Contact details`}
+                className="font-semibold text-ink underline decoration-slate-line underline-offset-2 hover:text-accent hover:decoration-accent"
+              >
+                {board.consultant}
+              </button>
+            ) : (
+              <span className="font-semibold text-ink">{board.consultant}</span>
+            )}
           </p>
         )}
       </div>
+      {contact && <ContactSheet target={contact} onClose={() => setContact(null)} />}
     </section>
   )
 }

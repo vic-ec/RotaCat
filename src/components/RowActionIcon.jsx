@@ -19,7 +19,9 @@
 // record" case. Clicks never reach the row behind it.
 const TONE_CLASS = {
   default: 'text-ink-muted hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink',
-  primary: 'bg-accent text-white hover:bg-accent-dark active:bg-accent-dark',
+  // The fill is on an inner 28px square (see below), so a phone's 36px
+  // tap target doesn't paint a 36px teal block.
+  primary: 'group text-white',
   danger: 'text-danger hover:bg-flagRed-bg active:bg-flagRed-bg',
   success: 'text-success hover:bg-success-bg active:bg-success-bg',
   'primary-text': 'text-accent hover:bg-accent-light active:bg-accent-light',
@@ -29,10 +31,13 @@ export default function RowActionIcon({ icon, href, title, label, onClick, onMis
   // 28px on a desktop, where a pointer is precise; 36px on a phone, where
   // two of these sit side by side under a thumb.
   const className = `flex h-9 w-9 flex-shrink-0 items-center justify-center rounded transition-colors md:h-7 md:w-7 ${TONE_CLASS[tone] || TONE_CLASS.default}`
+  const content = tone === 'primary'
+    ? <span className="flex h-7 w-7 items-center justify-center rounded bg-accent transition-colors group-hover:bg-accent-dark group-active:bg-accent-dark">{icon}</span>
+    : icon
   if (href) {
     return (
       <a href={href} title={title} aria-label={label || title} onClick={e => e.stopPropagation()} className={className}>
-        {icon}
+        {content}
       </a>
     )
   }
@@ -44,7 +49,7 @@ export default function RowActionIcon({ icon, href, title, label, onClick, onMis
       onClick={e => { e.stopPropagation(); (onClick || onMissing)?.() }}
       className={className}
     >
-      {icon}
+      {content}
     </button>
   )
 }

@@ -710,10 +710,13 @@
     background-image: var(--bg-sheen);
     color: rgb(var(--color-on-sheen));
   }
+  /* The opaque sheen (no translucent stops): iPhone Safari painted the
+     translucent one as black and white streaks on these bars too, not only
+     on sticky ones (My year's Late arrivals bar, 26 Nov). */
   .sheen-divider {
     @apply flex w-full items-center justify-between gap-2 rounded-[10px] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.06em];
     background-color: rgb(var(--color-sheen));
-    background-image: var(--bg-sheen);
+    background-image: var(--bg-sheen-opaque);
     color: rgb(var(--color-on-sheen));
   }
   .sheen-divider .divider-meta { color: rgb(var(--color-on-sheen-2)); }

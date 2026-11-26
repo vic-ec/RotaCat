@@ -14,6 +14,7 @@ const fetchLocumProfiles = vi.fn()
 const linkLocumContact = vi.fn()
 const fetchContactShifts = vi.fn()
 const updateLocumContactPhone = vi.fn()
+const fetchContactChanges = vi.fn()
 vi.mock('../lib/locumCover', async () => {
   const actual = await vi.importActual('../lib/locumCover')
   return {
@@ -24,6 +25,7 @@ vi.mock('../lib/locumCover', async () => {
     linkLocumContact: (...a) => linkLocumContact(...a),
     fetchContactShifts: (...a) => fetchContactShifts(...a),
     updateLocumContactPhone: (...a) => updateLocumContactPhone(...a),
+    fetchContactChanges: (...a) => fetchContactChanges(...a),
   }
 })
 const fetchLateArrivalsForLocum = vi.fn()
@@ -44,6 +46,7 @@ describe('LocumContactsPanel', () => {
     fetchContactShifts.mockReset().mockResolvedValue([])
     fetchLateArrivalsForLocum.mockReset().mockResolvedValue([])
     updateLocumContactPhone.mockReset().mockImplementation(async (id, digits) => digits)
+    fetchContactChanges.mockReset().mockResolvedValue([])
   })
 
   it('renders nothing when every locum on the roster has an account', async () => {
@@ -100,6 +103,17 @@ describe('LocumContactsPanel', () => {
     expect(screen.queryAllByTestId('contact-phone-editor')).toHaveLength(0)
     expect(updateLocumContactPhone).not.toHaveBeenCalled()
     expect(phone().getAllByText(/\(082\) 123-4567/).length).toBe(1)
+  })
+
+  it('the locum\'s window lists mobile number changes: old → new, by whom and when', async () => {
+    fetchContactChanges.mockResolvedValue([{ id: 'ch1', oldValue: '0821234567', newValue: '0835550142', at: '2026-11-26T12:32:00Z', byName: 'Pat Admin' }])
+    render(<MemoryRouter><LocumContactsPanel /></MemoryRouter>)
+    await screen.findAllByText('Jo Marsh')
+    await userEvent.click(phone().getByTestId('locum-contact-row'))
+    const changes = await screen.findByTestId('contact-phone-changes')
+    expect(changes).toHaveTextContent('(082) 123-4567 → (083) 555-0142')
+    expect(changes).toHaveTextContent(/By Pat Admin · 26 Nov 2026/)
+    expect(fetchContactChanges).toHaveBeenCalledWith('c-1')
   })
 
   it('"Create account" opens Add staff prefilled as a locum', async () => {

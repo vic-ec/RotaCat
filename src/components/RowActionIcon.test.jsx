@@ -41,7 +41,10 @@ describe('RowActionIcon', () => {
         <RowActionIcon icon={<svg />} title="Cancel leave" tone="danger" onClick={vi.fn()} />
       </>
     )
-    expect(screen.getByRole('button', { name: 'Publish' })).toHaveClass('bg-accent')
+    // Filled on an inner 28px square, not the whole (36px on a phone) target.
+    const publish = screen.getByRole('button', { name: 'Publish' })
+    expect(publish).not.toHaveClass('bg-accent')
+    expect(publish.firstElementChild).toHaveClass('bg-accent', 'h-7', 'w-7')
     expect(screen.getByRole('button', { name: 'Cancel leave' })).toHaveClass('text-danger')
   })
 })

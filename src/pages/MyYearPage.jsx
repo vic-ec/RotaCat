@@ -219,15 +219,17 @@ function MyYear({ profileId, own }) {
           {!own && person.category && <Tag>{categoryLabel(person.category)}</Tag>}
         </div>
         {/* One row at every width, every control the stepper's 30px: the
-            year, Go to and the page's one action. On a phone the action
-            drops its second word so the three fit a 390px screen. */}
+            year, Go to and the page's one action. The action is its + alone
+            under 420px (its name on hover or tap, HintLayer), a short label
+            to 640px, then its full name, so the row never runs off a
+            phone's edge. */}
         <div className="flex flex-nowrap items-center gap-2">
           <DateStepper unit="year" year={year} onChange={y => { setParam('year', y); setSelectedDate(y === currentYear ? today : null) }} nowrap />
           <GoToMenu links={goTo} />
           {action && (
-            <button type="button" onClick={action.onClick} aria-label={action.label} className="btn-primary h-[30px] whitespace-nowrap px-3 py-0 text-sm">
+            <button type="button" onClick={action.onClick} aria-label={action.label} title={action.label} className="btn-primary h-[30px] w-[30px] flex-shrink-0 justify-center whitespace-nowrap p-0 text-sm min-[420px]:w-auto min-[420px]:px-3">
               <Plus className="h-4 w-4" aria-hidden="true" />
-              <span className="sm:hidden">{action.short}</span>
+              <span className="hidden min-[420px]:inline sm:hidden">{action.short}</span>
               <span className="hidden sm:inline">{action.label}</span>
             </button>
           )}
@@ -236,7 +238,8 @@ function MyYear({ profileId, own }) {
 
       <PageTabs tabs={tabs} active={tab} onChange={key => setParam('tab', key)} ariaLabel={title} />
 
-      <div className="mt-6">
+      {/* The Staff list's spacing: 12px under the tabs. */}
+      <div className="mt-3">
         {tab === 'overview' && (
           <MyYearOverview
             year={year}

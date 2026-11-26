@@ -35,6 +35,8 @@ export function boardPerson(row, { late = false, vacatedName = null } = {}) {
     const name = row.profile ? fullName(row.profile) : locumDisplayName(row.locum_name)
     return {
       key: row.id, kind: 'locum', initials: initialsOf(name), sortName: row.profile?.surname || name, late,
+      // Who to contact: the locum's account, else their contact record.
+      profileId: row.profile_id || null, contactId: row.profile_id ? null : (row.locum_contact_id || null),
       name: name || 'Locum', meta: `Locum${vacatedName ? ` · covering ${vacatedName}` : ''}`,
       label: `${name || 'Locum'} · Locum${vacatedName ? ` · covering ${vacatedName}` : ''}`,
     }
@@ -43,7 +45,7 @@ export function boardPerson(row, { late = false, vacatedName = null } = {}) {
   const name = fullName(row.profile)
   const category = String(row.profile?.category || '').replace(/_/g, ' ')
   return {
-    key: row.id, kind: 'doctor', profile: row.profile, initials: initialsOf(name), sortName: row.profile?.surname || name, late,
+    key: row.id, kind: 'doctor', profile: row.profile, profileId: row.profile_id, initials: initialsOf(name), sortName: row.profile?.surname || name, late,
     name, meta: `${category || 'Doctor'}${vacatedName ? ` · covering ${vacatedName}` : ''}`,
     label: `${name}${category ? ` · ${category}` : ''}${vacatedName ? ` · covering ${vacatedName}` : ''}`,
   }
@@ -52,18 +54,19 @@ export function boardPerson(row, { late = false, vacatedName = null } = {}) {
 // rows   roster_entries joined with shift_type, profile and the vacated
 //        doctor's name, adjusted times already applied
 // now    a Date
-// Returns { now: [group], next: [group], consultant, rosterMonthId (the
-// roster holding today) }, each group
+// Returns { now: [group], next: [group], consultant, consultantId,
+// rosterMonthId (the roster holding today) }, each group
 // { key, start, end, startTime, endTime, night, people }. `next` is every
 // shift starting at the first start time after `now` (within 24 hours).
 export function buildOnShiftBoard(rows, now, { lateEntryIds = new Set() } = {}) {
   const groups = new Map()
   let consultant = null
+  let consultantId = null
   let rosterMonthId = null
   const today = formatLocalDate(now)
   for (const row of rows || []) {
     if (row.date === today && row.roster_month_id) rosterMonthId = row.roster_month_id
-    if (row.consultant_profile_id && row.date === today && row.consultant) consultant = fullName(row.consultant)
+    if (row.consultant_profile_id && row.date === today && row.consultant) { consultant = fullName(row.consultant); consultantId = row.consultant_profile_id }
     const st = row.shift_type
     if (!st) continue
     const person = boardPerson(row, { late: lateEntryIds.has(row.id), vacatedName: row.vacated ? fullName(row.vacated) : null })
@@ -84,7 +87,7 @@ export function buildOnShiftBoard(rows, now, { lateEntryIds = new Set() } = {}) 
   const ahead = all.filter(g => g.start > now && g.start - now <= 24 * 3600000)
   const firstStart = ahead[0]?.start?.getTime()
   const next = firstStart == null ? [] : ahead.filter(g => g.start.getTime() === firstStart)
-  return { now: onNow, next, consultant, rosterMonthId }
+  return { now: onNow, next, consultant, consultantId, rosterMonthId }
 }
 
 // "in 30 min" / "in 2 h" / "tomorrow"

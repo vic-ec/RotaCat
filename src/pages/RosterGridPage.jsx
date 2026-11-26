@@ -49,6 +49,7 @@ import { shiftColumns } from '../lib/shiftLabels'
 import { useSwatch } from '../lib/useSwatch'
 import { useIsDesktop } from '../lib/useIsDesktop'
 import { adjustedTimesLabel } from '../lib/shiftTimes'
+import { leaveByDate, awaySummary } from '../lib/rosterLeaveColumn'
 
 // Two ways to read the same month. Rows is the day-by-day grid the roster
 // has always been; Lanes turns it ninety degrees, a row per doctor. Both
@@ -336,6 +337,9 @@ export default function RosterGridPage() {
   // Below md the Consultant column folds into the date rail (see the grid),
   // so the column plan changes with the breakpoint, not just the CSS.
   const wideGrid = useIsDesktop(768)
+  // The paper roster's Leave and Course columns, on a screen wide enough to
+  // add them; narrower, the date rail says how many are away instead.
+  const leaveCols = useIsDesktop(1024)
 
   useEffect(() => {
     loadAll()
@@ -609,6 +613,7 @@ export default function RosterGridPage() {
   // Consultant pools so a collision between the two still resolves, even
   // though they're assigned via separate columns/dropdowns.
   const displayNames = buildDoctorDisplayNames([...profiles, ...consultantProfiles])
+  const awayByDate = leaveByDate(leaveByProfile, visibleDays.map(d => d.dateStr), pid => displayNames.get(pid) ?? profileMap[pid]?.surname)
 
   // One filter drives both layouts: Lanes drops the rows that don't match,
   // Rows keeps every chip but dims the ones that don't — hiding a name from
@@ -1384,7 +1389,7 @@ export default function RosterGridPage() {
       <div className="-mx-4 overflow-x-auto md:mx-0" style={{ fontSize: `${rosterBase}px` }}>
         <table
           className="w-full table-fixed border-separate border-spacing-0"
-          style={{ minWidth: Math.round((wideGrid ? 580 : 495) * rosterScale) }}
+          style={{ minWidth: Math.round(((wideGrid ? 580 : 495) + (leaveCols ? 6 + 2 * 107 : 0)) * rosterScale) }}
         >
           {/* Date rail 44px, Consultant + up to 4 shift columns 107px each.
               Below md the Consultant column is gone and the rail widens to
@@ -1396,6 +1401,13 @@ export default function RosterGridPage() {
             <col style={{ width: Math.round(107 * rosterScale) }} />
             <col style={{ width: Math.round(107 * rosterScale) }} />
             <col style={{ width: Math.round(107 * rosterScale) }} />
+            {leaveCols && (
+              <>
+                <col style={{ width: 6 }} />
+                <col style={{ width: Math.round(107 * rosterScale) }} />
+                <col style={{ width: Math.round(107 * rosterScale) }} />
+              </>
+            )}
           </colgroup>
           <tbody>
             {visibleDays.map((day, dayIdx) => {
@@ -1433,6 +1445,8 @@ export default function RosterGridPage() {
               // A day opened from My year (not today) gets the same 2px
               // frame and solid rail in dark grey instead.
               const isMarked = !isToday && day.dateStr === markedDate
+              const away = awayByDate[day.dateStr] || { leave: [], course: [] }
+              const awayCount = away.leave.length + away.course.length
               const strong = isToday || isMarked
               const line = isToday ? 'border-accent' : isMarked ? 'border-ink-light' : 'border-slate-line'
               const cellFrame = strong ? `border-y-2 ${line}` : `border-y ${line}`
@@ -1454,7 +1468,7 @@ export default function RosterGridPage() {
                 <Fragment key={day.dateStr}>
                   {dayIdx > 0 && (
                     <tr aria-hidden="true" data-testid="day-gap" className={isMonday ? 'h-[14px]' : 'h-[6px]'}>
-                      <td colSpan={wideGrid ? 6 : 5} className="p-0" />
+                      <td colSpan={(wideGrid ? 6 : 5) + (leaveCols ? 3 : 0)} className="p-0" />
                     </tr>
                   )}
                   <tr data-testid="day-row" data-date={day.dateStr} data-marked={isMarked || undefined} className={rowBg}>
@@ -1467,6 +1481,17 @@ export default function RosterGridPage() {
                     <span className={`block text-[0.834em] ${isToday ? 'text-on-fill/80' : isMarked ? 'text-canvas/80' : 'text-ink-muted'}`}>{DAY_NAMES[localDate.getDay()]}</span>
                     <span>{d}</span>
                     {isToday && <span data-testid="today-tag" className="mt-0.5 block text-[0.75em] font-bold uppercase tracking-wide">Today</span>}
+                    {!leaveCols && awayCount > 0 && (
+                      // Who: on a tap or hover (the app's hint), since the
+                      // Leave and Course columns don't fit here.
+                      <span
+                        data-testid="rail-away"
+                        title={awaySummary(away)}
+                        className={`mt-0.5 block cursor-help text-[0.75em] font-semibold ${isToday ? 'text-on-fill/80' : isMarked ? 'text-canvas/80' : 'text-ink-muted'}`}
+                      >
+                        {awayCount} away
+                      </span>
+                    )}
                     {day.phName && (
                       <span className="mt-0.5 block">
                         <PublicHolidayBadge name={day.phName} />
@@ -1569,6 +1594,31 @@ export default function RosterGridPage() {
                       </td>
                     )
                   })}
+                  {leaveCols && (
+                    <>
+                      {/* Page background across a weekend's missing fourth
+                          column and the gap, so the Leave block stands
+                          apart from the shifts. */}
+                      <td aria-hidden="true" colSpan={4 - shifts.length + 1} className="bg-canvas p-0" />
+                      {[['leave', 'Leave'], ['course', 'Course']].map(([key, label]) => (
+                        <td
+                          key={key}
+                          data-testid={`${key}-cell`}
+                          className={`${cellFrame} align-top p-0 ${key === 'leave' ? `${strong ? 'border-l-2' : 'border-l'} border-r rounded-l-md` : `${strong ? 'border-r-2' : 'border-r'} rounded-r-md`}`}
+                        >
+                          {showHeader && <div className={headerBand}>{label}</div>}
+                          <div className="space-y-0.5 px-1.5 py-1 text-[0.834em]">
+                            {away[key].map(p => (
+                              <div key={p.profileId} className="flex items-baseline gap-1 truncate text-ink-light">
+                                <span className="truncate">{p.name}</span>
+                                {p.code && <span className="flex-shrink-0 text-[0.85em] font-semibold text-ink-muted">{p.code}</span>}
+                              </div>
+                            ))}
+                          </div>
+                        </td>
+                      ))}
+                    </>
+                  )}
                   </tr>
                 </Fragment>
               )
@@ -1883,6 +1933,16 @@ function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmi
       {lateMark}
       {editMark}
     </div>
+    {/* Still rostered over approved leave with nobody covering: say so, so
+        the gap reads as one rather than as a struck name someone dealt with. */}
+    {onLeave && (
+      <span
+        data-testid="no-cover-arranged"
+        className={`mt-0.5 inline-block rounded-full bg-flagAmber-bg px-1.5 py-px text-[0.75em] font-semibold text-flagAmber ${dimmed ? 'opacity-30' : ''}`}
+      >
+        No cover arranged
+      </span>
+    )}
     </>
   )
 }

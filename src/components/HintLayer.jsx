@@ -14,11 +14,16 @@ import { createPortal } from 'react-dom'
 // draw its own on top, and put back as soon as the pointer leaves.
 //
 // Mouse: shown after a short pause (so sweeping across a toolbar doesn't
-// flicker), hidden on leave, click, scroll or a key. Touch: shown for a
-// moment after a tap — the tap still does whatever it does. Under sheets
-// and modals (z-40) so a menu the tap opened covers it.
+// flicker), hidden on leave, click, scroll or a key. Touch: shown on a tap
+// and kept until the next tap, a scroll or a key — the tap still does
+// whatever it does. Under sheets and modals (z-40) so a menu the tap opened
+// covers it.
+//
+// A lifted finger fires pointerout with no relatedTarget, which for a
+// mouse means "left the window". Treating it that way for touch closed
+// every tap hint a few milliseconds after it opened, so only a mouse
+// pointer leaving the window clears it.
 const HOVER_DELAY_MS = 350
-const TAP_SHOW_MS = 1500
 const MAX_WIDTH = 256
 
 function hintTarget(node) {
@@ -73,6 +78,10 @@ export default function HintLayer() {
       park(el)
       timer = setTimeout(() => show(el), HOVER_DELAY_MS)
     }
+    // A new tap closes the hint the last one opened.
+    function onPointerDown(e) {
+      if (e.pointerType !== 'mouse' && current) clear()
+    }
     function onPointerUp(e) {
       if (e.pointerType === 'mouse') { if (current) { clearTimeout(timer); setHint(null) } return }
       const el = hintTarget(e.target)
@@ -81,13 +90,13 @@ export default function HintLayer() {
       current = el
       park(el)
       show(el)
-      timer = setTimeout(clear, TAP_SHOW_MS)
     }
     function onLeaveWindow(e) {
-      if (!e.relatedTarget) clear()
+      if (e.pointerType === 'mouse' && !e.relatedTarget) clear()
     }
 
     document.addEventListener('pointerover', onPointerOver)
+    document.addEventListener('pointerdown', onPointerDown)
     document.addEventListener('pointerup', onPointerUp)
     document.addEventListener('pointerout', onLeaveWindow)
     document.addEventListener('keydown', clear)
@@ -96,6 +105,7 @@ export default function HintLayer() {
     return () => {
       clear()
       document.removeEventListener('pointerover', onPointerOver)
+      document.removeEventListener('pointerdown', onPointerDown)
       document.removeEventListener('pointerup', onPointerUp)
       document.removeEventListener('pointerout', onLeaveWindow)
       document.removeEventListener('keydown', clear)

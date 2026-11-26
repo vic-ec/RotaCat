@@ -183,7 +183,9 @@ describe('RosterGridPage day blocks', () => {
     expect(rail('2026-08-08')).toHaveClass('bg-accent-light')
     expect(rail('2026-08-09')).toHaveClass('bg-rose-night')
     expect(within(rail('2026-08-09')).getByText("Women's Day")).toBeInTheDocument()
-    for (const cell of rowFor('2026-08-05').children) expect(cell).toHaveClass('border-accent')
+    for (const cell of rowFor('2026-08-05').children) {
+      if (!cell.hasAttribute('aria-hidden')) expect(cell).toHaveClass('border-accent')
+    }
     expect(rail('2026-08-04')).not.toHaveClass('border-accent')
   })
 
@@ -205,6 +207,37 @@ describe('RosterGridPage day blocks', () => {
       expect(await screen.findByText('Cancel this leave?')).toBeInTheDocument()
       expect(screen.getByTestId('leave-shifts-choice')).toHaveTextContent('Alli (locum)')
     } finally { extraEntries = [] }
+  })
+
+  it('a doctor still rostered over approved leave carries "No cover arranged"', async () => {
+    extraEntries = [{ id: 'nc1', date: '2026-08-20', shift_type_id: st('WD_08'), profile_id: 'p1', position: 0 }]
+    try {
+      renderPage()
+      await screen.findByText('August 2026')
+      expect(await within(rowFor('2026-08-20')).findByTestId('no-cover-arranged')).toHaveTextContent('No cover arranged')
+      expect(within(rowFor('2026-08-26')).queryByTestId('no-cover-arranged')).not.toBeInTheDocument()
+    } finally { extraEntries = [] }
+  })
+
+  it('shows who is away in Leave and Course columns, read from approved leave', async () => {
+    renderPage()
+    await screen.findByText('August 2026')
+    expect(within(rowFor('2026-08-20')).getByTestId('leave-cell')).toHaveTextContent('AndersonSK')
+    expect(within(rowFor('2026-08-20')).getByTestId('course-cell')).toHaveTextContent('')
+    expect(within(rowFor('2026-08-21')).getByTestId('leave-cell')).toHaveTextContent('')
+    // A weekend row lines its Leave column up with a weekday's.
+    expect(within(rowFor('2026-08-08')).getByTestId('leave-cell')).toBeInTheDocument()
+  })
+
+  it('on a narrower screen the date rail says how many are away instead, with who on a tap', async () => {
+    setViewport(false)
+    renderPage()
+    await screen.findByText('August 2026')
+    expect(within(rowFor('2026-08-20')).queryByTestId('leave-cell')).not.toBeInTheDocument()
+    const away = within(rowFor('2026-08-20')).getByTestId('rail-away')
+    expect(away).toHaveTextContent('1 away')
+    expect(away).toHaveAttribute('title', 'Leave: Anderson (SK)')
+    expect(within(rowFor('2026-08-21')).queryByTestId('rail-away')).not.toBeInTheDocument()
   })
 
   it('Fullscreen hides the header bar and the app chrome until Exit', async () => {

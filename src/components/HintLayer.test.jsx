@@ -25,15 +25,31 @@ describe('HintLayer', () => {
     expect(button).toHaveAttribute('title', 'Legend')
   })
 
-  it('shows the label for a moment after a tap', () => {
+  it('keeps a tap\'s label open — through the finger lifting — until the next tap', () => {
     vi.useFakeTimers()
-    render(<><button title="More actions">⋮</button><HintLayer /></>)
+    render(<><button title="More actions">⋮</button><span>elsewhere</span><HintLayer /></>)
     const button = screen.getByRole('button')
     pointer('pointerup', button, 'touch')
     expect(screen.getByRole('tooltip')).toHaveTextContent('More actions')
-    act(() => { vi.advanceTimersByTime(1600) })
+    // A lifted finger "leaves" with no relatedTarget; that is not leaving the window.
+    pointer('pointerout', button, 'touch')
+    act(() => { vi.advanceTimersByTime(5000) })
+    expect(screen.getByRole('tooltip')).toHaveTextContent('More actions')
+
+    pointer('pointerdown', screen.getByText('elsewhere'), 'touch')
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
     expect(button).toHaveAttribute('title', 'More actions')
+  })
+
+  it('a mouse leaving the window clears its label', () => {
+    vi.useFakeTimers()
+    render(<><button title="Legend">L</button><HintLayer /></>)
+    const button = screen.getByRole('button')
+    pointer('pointerover', button, 'mouse')
+    act(() => { vi.advanceTimersByTime(400) })
+    expect(screen.getByRole('tooltip')).toBeInTheDocument()
+    pointer('pointerout', button, 'mouse')
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
   })
 
   it('finds the title on an ancestor of what the pointer is over', () => {

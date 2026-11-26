@@ -20,7 +20,7 @@ import {
   DOCTOR_SORT_OPTIONS, DOCTOR_SORT_COMPARATORS, DEFAULT_DOCTOR_SORT,
   CONTRACT_TYPE_ORDER, CONTRACT_TYPE_LABEL,
 } from '../lib/doctorSort'
-import { buildDoctorDisplayNames, fullDoctorName } from '../lib/doctorNames'
+import { buildDoctorDisplayNames, fullDoctorName, DOCTOR_NAME_COL_PX } from '../lib/doctorNames'
 import { useSelectedRow } from '../lib/useSelectedRow'
 import { useSwatch } from '../lib/useSwatch'
 import { useFillToViewport } from '../lib/useFillToViewport'
@@ -171,11 +171,9 @@ export default function RosterSummaryPage() {
   const displayNames = buildDoctorDisplayNames(
     rows.map(r => ({ id: r.profileId, name: r.name, surname: r.surname }))
   )
-  // The Doctor column is as wide as the longest name on the whole page
-  // (collapsed sections included, so folding one never moves the grid) and
-  // no wider: a 10px pill is about 6.2px a character, plus its padding and
-  // the cell's. Names never wrap or truncate.
-  const doctorColWidth = Math.max(96, Math.ceil(Math.max(0, ...rows.map(r => fullDoctorName(r, displayNames.get(r.profileId) ?? r.surname).length)) * 6.2) + 34)
+  // The Doctor column is All Leave's (DOCTOR_NAME_COL_PX), so the tables
+  // read alike; a longer name truncates in its pill (full name on hover/tap).
+  const doctorColWidth = DOCTOR_NAME_COL_PX
 
   const availableCategories = CATEGORY_ORDER.filter(c => rows.some(r => r.category === c))
   const filtersActive = selectedCategories.size > 0 || selectedContractTypes.size > 0 || selectedHours.size > 0
@@ -473,7 +471,7 @@ export default function RosterSummaryPage() {
                     >
                       <div className="flex items-center gap-1.5">
                         <span
-                          className="whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-medium"
+                          className="min-w-0 truncate whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-medium"
                           style={swatch.fill(row.colorCode || '#4A90D9', { text: true })}
                         >
                           {fullDoctorName(row, displayNames.get(row.profileId) ?? row.surname)}

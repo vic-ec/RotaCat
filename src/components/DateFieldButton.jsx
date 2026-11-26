@@ -82,9 +82,9 @@ function ClearIcon(props) {
   )
 }
 
-function formatDate(dateStr) {
+function formatDate(dateStr, year = 'numeric') {
   const [y, m, d] = dateStr.split('-').map(Number)
-  return new Date(y, m - 1, d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+  return new Date(y, m - 1, d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year })
 }
 
 // `variant="auth"` is the auth modals' field (AUTH_MODAL in
@@ -117,6 +117,11 @@ export default function DateFieldButton({
   disabled = false, onBlur, emptyLabel, labelledExternally = false, className = '', variant = 'default',
   invalid = false, ariaDescribedBy,
 }) {
+  // On a phone every date field is compact: a 2-digit year below sm ("26
+  // Nov 26") and no calendar icon under 380px, so a pair of them fits a
+  // toolbar row and a form reads the same. Not the auth modals' field (a
+  // birthday's year needs all four digits).
+  const shortYearOnPhone = variant !== 'auth'
   const inputRef = useRef(null)
   const v = VARIANTS[variant] || VARIANTS.default
   // The red outline overrides the variant's own border colour; it is only
@@ -135,8 +140,14 @@ export default function DateFieldButton({
         fullWidth ? 'w-full' : 'w-40 flex-shrink-0'
       } ${value ? v.pad.withValue : v.pad.empty} ${disabled ? 'cursor-not-allowed opacity-50' : ''} ${className}`}
     >
-      <CalendarIcon className={`${v.icon} flex-shrink-0 text-ink-muted`} />
-      <span className={`truncate ${value ? 'text-ink' : 'text-ink-light'}`}>{value ? formatDate(value) : (emptyLabel ?? label)}</span>
+      <CalendarIcon className={`${v.icon} flex-shrink-0 text-ink-muted ${shortYearOnPhone ? 'hidden min-[380px]:block' : ''}`} />
+      <span className={`truncate ${value ? 'text-ink' : 'text-ink-light'}`}>
+        {value
+          ? (shortYearOnPhone
+            ? <><span className="sm:hidden">{formatDate(value, '2-digit')}</span><span className="hidden sm:inline">{formatDate(value)}</span></>
+            : formatDate(value))
+          : (emptyLabel ?? label)}
+      </span>
       <input
         ref={inputRef}
         id={id}

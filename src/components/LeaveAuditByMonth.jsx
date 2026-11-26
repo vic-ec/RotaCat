@@ -8,7 +8,7 @@ import { MONTH_ABBR, formatShortDateRange } from '../lib/dateRange'
 import { LEAVE_TYPE_LABELS } from '../lib/leaveRequests'
 import { MONTH_SHADES, monthShadeStep, sinceLastBreakText } from '../lib/leaveAuditByMonth'
 import { myYearPath } from '../lib/myYearLinks'
-import { fullDoctorName } from '../lib/doctorNames'
+import { fullDoctorName, DOCTOR_NAME_COL_PX } from '../lib/doctorNames'
 import { CONTRACT_TYPE_LABEL } from '../lib/doctorSort'
 
 const OT_SUBTYPE_SHORT = { LRCHC: 'Day Hosp', DPM_BCH: 'TB Hosp', PSYCH: 'Psych' }
@@ -148,7 +148,7 @@ export default function LeaveAuditByMonth({
       <div ref={tableRef} style={tableFill} className="mt-4 overflow-auto rounded-lg border border-slate-line">
         <table className="w-full min-w-[1180px] table-fixed border-separate border-spacing-0 text-xs" data-testid="all-leave-by-month">
           <colgroup>
-            <col className="w-[132px]" />
+            <col style={{ width: DOCTOR_NAME_COL_PX }} />
             {MONTH_ABBR.map(m => <col key={m} className="w-[46px]" />)}
             <col className="w-[66px]" /><col className="w-[66px]" /><col className="w-[52px]" /><col className="w-[52px]" /><col className="w-[60px]" />
             <col className="w-[150px]" />

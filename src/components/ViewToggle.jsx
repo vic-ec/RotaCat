@@ -22,11 +22,32 @@
 const LABEL_FROM = { sm: 'hidden sm:inline', lg: 'hidden lg:inline', '2xl': 'hidden 2xl:inline' }
 const SHORT_UNTIL = { sm: 'sm:hidden', lg: 'lg:hidden', '2xl': '2xl:hidden' }
 
-export default function ViewToggle({ view, onChange, options, tight = false, labelFrom = 'sm' }) {
+// `iconOnly`: every option is its icon (or its `shortLabel`) at every width,
+// its name the title — which the app's hint (HintLayer) shows on hover or a
+// tap. For a toolbar with no room for words (All Leave's By month / By
+// leave type, beside its date pickers).
+export default function ViewToggle({ view, onChange, options, tight = false, labelFrom = 'sm', iconOnly = false }) {
   return (
     <div className="seg-track h-[30px] flex-shrink-0">
       {options.map(o => {
         const Icon = o.icon
+        if (iconOnly) {
+          return (
+            <button
+              key={o.key}
+              type="button"
+              onClick={() => onChange(o.key)}
+              aria-label={o.ariaLabel ?? o.label}
+              aria-pressed={view === o.key}
+              title={o.title ?? o.label}
+              className={`flex w-[30px] items-center justify-center rounded text-xs font-semibold transition-colors ${
+                view === o.key ? 'seg-on' : 'text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
+              }`}
+            >
+              {Icon ? <Icon className="h-3.5 w-3.5" aria-hidden="true" /> : <span aria-hidden="true">{o.shortLabel}</span>}
+            </button>
+          )
+        }
         return (
           <button
             key={o.key}

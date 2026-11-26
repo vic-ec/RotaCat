@@ -8,6 +8,7 @@ import Toolbar from '../components/Toolbar'
 import SectionLabel from '../components/SectionLabel'
 import Tag from '../components/Tag'
 import { ListRowRecord, ListEmptyState } from '../components/ListRow'
+import RosterStatusIcon from '../components/RosterStatusIcon'
 import CreateRosterModal from '../components/CreateRosterModal'
 import GenerationRunsPanel from '../components/GenerationRunsPanel'
 import FloatingActionMenu from '../components/FloatingActionMenu'
@@ -883,9 +884,16 @@ function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn
               checked={selected.has(roster.id)}
               onToggleCheck={() => toggleOne(roster.id)}
               selectLabel={`Select ${MONTH_NAMES[roster.month]} ${roster.year}`}
-              title={`${MONTH_NAMES[roster.month]} ${roster.year}`}
+              // Under 380px (smaller Android phones) the month is its three
+              // letters, so "September 2026", the status icon and every row
+              // icon still fit one line.
+              title={<><span className="min-[380px]:hidden">{MONTH_NAMES[roster.month].slice(0, 3)} {roster.year}</span><span className="hidden min-[380px]:inline">{MONTH_NAMES[roster.month]} {roster.year}</span></>}
               subtitle={metaAsLine((phoneMetaFn || metaFn)(roster))}
-              statusTag={phoneStatus ? <Tag variant="status" tone={STATUS_TONE[roster.status]}>{STATUS_LABELS[roster.status]}</Tag> : null}
+              // The status right of the month as an icon (the pill has no room
+              // on a phone); the Bin, which mixes them, keeps the pill.
+              statusTag={phoneStatus
+                ? <Tag variant="status" tone={STATUS_TONE[roster.status]}>{STATUS_LABELS[roster.status]}</Tag>
+                : <RosterStatusIcon status={roster.status} className="h-3.5 w-3.5" />}
               onClick={() => navigate(`/roster/${roster.id}`)}
               actions={isAdmin ? [
                 flags?.get(roster.id)

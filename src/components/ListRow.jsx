@@ -29,6 +29,7 @@ function KebabIcon(props) {
 // uses, plus a left accent stripe standing in for the spec's "+ border"
 // without breaking the flush look of a `divide-y` row list.
 const ROW_BASE = 'flex items-center gap-3 px-4 py-2 transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken'
+const ROW_BASE_TIGHT = ROW_BASE.replace('gap-3', 'gap-2 sm:gap-3')
 const ROW_SELECTED = 'bg-accent-light border-l-2 border-accent pl-[14px]'
 
 // Desktop: up to 2-3 inline icon buttons, always titled. Mobile: the same
@@ -166,7 +167,9 @@ export function ListRowRecord({
   return (
     <div
       onClick={onClick}
-      className={`min-h-[56px] ${ROW_BASE} ${clickable ? 'cursor-pointer' : ''} ${selected ? ROW_SELECTED : ''}`}
+      // gap-2 on a phone (ROW_BASE_TIGHT), so a title, its date line and
+      // four icons still fit one line at 360px.
+      className={`min-h-[56px] ${ROW_BASE_TIGHT} ${clickable ? 'cursor-pointer' : ''} ${selected ? ROW_SELECTED : ''}`}
     >
       {onToggleCheck && (
         <input
@@ -179,16 +182,17 @@ export function ListRowRecord({
         />
       )}
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <p className="truncate text-sm font-medium text-ink">{title}</p>
-          {statusTag}
+        {/* One line: the title gives way (truncates) before the tag wraps. */}
+        <div className="flex min-w-0 items-center gap-x-2">
+          <p className="min-w-0 truncate text-sm font-medium text-ink">{title}</p>
+          {statusTag && <span className="flex-shrink-0">{statusTag}</span>}
         </div>
         {subtitle && <p className="mt-0.5 truncate text-xs text-ink-muted">{subtitle}</p>}
       </div>
       {/* Per-row actions (View / Edit / Publish on a roster row): their own
           click target, so pressing one never also opens the row. */}
       {actions && (
-        <div className="flex flex-shrink-0 items-center gap-1" onClick={e => e.stopPropagation()}>
+        <div className="flex flex-shrink-0 items-center gap-0.5 sm:gap-1" onClick={e => e.stopPropagation()}>
           {actions}
         </div>
       )}

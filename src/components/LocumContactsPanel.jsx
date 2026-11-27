@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useState } from 'react'
-import { Link2, MessageCircle, Pencil, UserPlus } from 'lucide-react'
+import { Link2, Pencil, UserPlus } from 'lucide-react'
+import WhatsAppIcon from './icons/WhatsAppIcon'
 import ProfileAvatar from './ProfileAvatar'
 import RowActionIcon from './RowActionIcon'
 import AddStaffModal from './AddStaffModal'
@@ -148,7 +149,7 @@ export default function LocumContactsPanel({ onLinked, onCount }) {
         onClick={() => openPhoneEdit(row)}
       />
       {inviteHref && (
-        <RowActionIcon icon={<MessageCircle className="h-4 w-4" />} title="WhatsApp" label={`WhatsApp ${row.name}`} href={inviteHref} />
+        <RowActionIcon icon={<WhatsAppIcon className="h-4 w-4" />} title="WhatsApp" label={`WhatsApp ${row.name}`} href={inviteHref} />
       )}
       <RowActionIcon icon={<UserPlus className="h-4 w-4" />} title="Create account" label={`Create ${row.name}'s account`} onClick={() => setCreatingFor(row)} />
       <RowActionIcon

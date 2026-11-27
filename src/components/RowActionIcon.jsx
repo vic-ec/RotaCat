@@ -46,7 +46,7 @@ export default function RowActionIcon({ icon, href, title, label, onClick, onMis
       type="button"
       title={title}
       aria-label={label || title}
-      onClick={e => { e.stopPropagation(); (onClick || onMissing)?.() }}
+      onClick={e => { e.stopPropagation(); (onClick || onMissing)?.(e) }}
       className={className}
     >
       {content}

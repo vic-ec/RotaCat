@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AlarmClock } from 'lucide-react'
 import { fetchOnShiftBoard, startsInLabel } from '../lib/onShiftBoard'
 import { shiftStartLabel } from '../lib/myYear'
 import { formatLocalDate } from '../lib/dateRange'
 import ProfileAvatar from './ProfileAvatar'
-import ContactSheet from './ContactSheet'
+import ContactQuickMenu from './ContactQuickMenu'
 import { PanelRows, PanelRow } from './PanelRows'
 
 // The admin Dashboard's "On shift": who is on now (grouped by shift, each
@@ -39,7 +39,7 @@ function LateClock() {
 
 // One line per person. Someone with contact details on record (a doctor,
 // or a locum with an account or a contact record) is a button that opens
-// their contact card; an open slot is not.
+// the contact menu (Message, Call, Mail); an open slot is not.
 function PersonLine({ person, onContact }) {
   const label = `${person.label}${person.late ? ' · late arrival logged' : ''}`
   const contactable = Boolean(onContact && (person.profileId || person.contactId))
@@ -60,8 +60,9 @@ function PersonLine({ person, onContact }) {
       {contactable ? (
         <button
           type="button"
-          onClick={() => onContact({ profileId: person.profileId, contactId: person.contactId, name: person.name, meta: person.meta })}
-          aria-label={`${label}. Contact details`}
+          onClick={e => onContact({ key: person.key, profileId: person.profileId, contactId: person.contactId, name: person.name, meta: person.meta }, e.currentTarget)}
+          aria-label={`${label}. Contact`}
+          aria-haspopup="menu"
           className="-m-1 flex w-[calc(100%+0.5rem)] min-w-0 items-center gap-2.5 rounded-lg p-1 text-left transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken"
         >
           {body}
@@ -96,8 +97,16 @@ export default function OnShiftPanel() {
   const [board, setBoard] = useState(null)
   const [error, setError] = useState('')
   const [now, setNow] = useState(() => new Date())
-  // The contact card open from a name: { profileId | contactId, name, meta }.
+  // The contact menu open from a name: { key, profileId | contactId, name,
+  // meta, anchor }. Tapping the same name again closes it.
   const [contact, setContact] = useState(null)
+  const triggerRef = useRef(null)
+  const openContact = (target, el) => {
+    if (contact && contact.key === target.key) { setContact(null); triggerRef.current = null; return }
+    triggerRef.current = el
+    setContact({ ...target, anchor: el.getBoundingClientRect() })
+  }
+  const closeContact = useCallback(() => { setContact(null); triggerRef.current = null }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -135,12 +144,12 @@ export default function OnShiftPanel() {
             )}
             {board.now.map(g => (
               <PanelRow key={g.key} testId="on-shift-group" label={<ShiftLabel group={g} tag="Now" />}>
-                {g.people.map(p => <PersonLine key={p.key} person={p} onContact={setContact} />)}
+                {g.people.map(p => <PersonLine key={p.key} person={p} onContact={openContact} />)}
               </PanelRow>
             ))}
             {board.next.map(g => (
               <PanelRow key={g.key} testId="on-shift-group" tint label={<ShiftLabel group={g} tag={`Next · ${startsInLabel(g.start, now)}`} />}>
-                {g.people.map(p => <PersonLine key={p.key} person={p} onContact={setContact} />)}
+                {g.people.map(p => <PersonLine key={p.key} person={p} onContact={openContact} />)}
               </PanelRow>
             ))}
           </PanelRows>
@@ -151,8 +160,9 @@ export default function OnShiftPanel() {
             {board.consultantId ? (
               <button
                 type="button"
-                onClick={() => setContact({ profileId: board.consultantId, name: board.consultant, meta: 'Consultant on call' })}
-                aria-label={`${board.consultant}, consultant on call. Contact details`}
+                onClick={e => openContact({ key: 'on-call', profileId: board.consultantId, name: board.consultant, meta: 'Consultant on call' }, e.currentTarget)}
+                aria-label={`${board.consultant}, consultant on call. Contact`}
+                aria-haspopup="menu"
                 className="font-semibold text-ink underline decoration-slate-line underline-offset-2 hover:text-accent hover:decoration-accent"
               >
                 {board.consultant}
@@ -163,7 +173,7 @@ export default function OnShiftPanel() {
           </p>
         )}
       </div>
-      {contact && <ContactSheet target={contact} onClose={() => setContact(null)} />}
+      {contact && <ContactQuickMenu target={contact} triggerRef={triggerRef} onClose={closeContact} />}
     </section>
   )
 }

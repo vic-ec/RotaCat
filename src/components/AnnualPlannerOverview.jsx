@@ -277,7 +277,7 @@ export default function AnnualPlannerOverview({
 
       {requestOpen && (
         <Modal title="Request annual leave" onClose={() => setRequestOpen(false)} centered>
-          <LeaveRequestForm initialLeaveType="annual" onSubmitted={() => { setRequestOpen(false); onRequestSubmitted?.() }} />
+          <LeaveRequestForm onCancel={() => setRequestOpen(false)} initialLeaveType="annual" onSubmitted={() => { setRequestOpen(false); onRequestSubmitted?.() }} />
         </Modal>
       )}
     </div>

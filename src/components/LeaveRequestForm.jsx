@@ -70,7 +70,7 @@ const WEEKEND_EXCEPTION_HINT = 'Pick the Saturday — the Sunday is added automa
 // `subject` (the doctor the leave is for), never the signed-in profile.
 // `captureOnly`: opened from an admin-only "Capture leave" action, so the
 // picker starts empty instead of on the admin themself.
-export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', initialDateTo = '', initialLeaveType = 'annual', captureOnly = false, initialSubjectId = null }) {
+export default function LeaveRequestForm({ onSubmitted, onCancel = null, initialDateFrom = '', initialDateTo = '', initialLeaveType = 'annual', captureOnly = false, initialSubjectId = null }) {
   const { profile: ownProfile, isAdmin, canSubmitLeave } = useAuth()
   // An admin who isn't a doctor themself has nobody to default to either.
   const canFileForSelf = !captureOnly && (!isAdmin || canSubmitLeave !== false)
@@ -570,11 +570,20 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
         </label>
       )}
 
-      <button type="submit" disabled={submitting || (isAdmin && !profile) || alreadyOnLeave} className="btn-primary">
-        {isCapture
-          ? (submitting ? 'Capturing…' : 'Capture leave')
-          : (submitting ? 'Submitting…' : overCapacity ? 'Submit for admin approval' : 'Submit request')}
-      </button>
+      {/* Submit, then Cancel to its right (when the form sits in a window
+          that can be closed). */}
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="submit" disabled={submitting || (isAdmin && !profile) || alreadyOnLeave} className="btn-primary">
+          {isCapture
+            ? (submitting ? 'Capturing…' : 'Capture leave')
+            : (submitting ? 'Submitting…' : overCapacity ? 'Submit for admin approval' : 'Submit request')}
+        </button>
+        {onCancel && (
+          <button type="button" onClick={onCancel} disabled={submitting} className="btn-secondary">
+            Cancel
+          </button>
+        )}
+      </div>
     </form>
   )
 }

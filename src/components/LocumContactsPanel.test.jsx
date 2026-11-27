@@ -154,6 +154,18 @@ describe('LocumContactsPanel', () => {
     await waitFor(() => expect(linkLocumContact).toHaveBeenCalledWith({ contactId: 'c-1', profileId: 'loc-5' }))
   })
 
+  it('Cancel, right of Move, closes the account picker', async () => {
+    const user = userEvent.setup()
+    render(<MemoryRouter><LocumContactsPanel /></MemoryRouter>)
+    await screen.findAllByText('Jo Marsh')
+    await user.click((await phoneMenu(user)).getByRole('button', { name: 'Link to existing account' }))
+    const move = phone().getByRole('button', { name: 'Move 3 shifts' })
+    const cancel = phone().getByRole('button', { name: 'Cancel' })
+    expect(move.compareDocumentPosition(cancel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    await user.click(cancel)
+    expect(phone().queryByRole('button', { name: 'Move 3 shifts' })).not.toBeInTheDocument()
+  })
+
   it('reports its count to the page, for the tab badge and the notice', async () => {
     const onCount = vi.fn()
     render(<MemoryRouter><LocumContactsPanel onCount={onCount} /></MemoryRouter>)

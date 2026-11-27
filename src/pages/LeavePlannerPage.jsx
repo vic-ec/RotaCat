@@ -328,7 +328,7 @@ export default function LeavePlannerPage() {
         <Modal title="Capture leave for a doctor" onClose={() => setCaptureOpen(false)} centered>
           {/* Stays open after a capture, so several can be logged in one
               sitting; the views behind refresh each time. */}
-          <LeaveRequestForm captureOnly initialLeaveType="sick" onSubmitted={() => setTeamLeaveVersion(v => v + 1)} />
+          <LeaveRequestForm onCancel={() => setCaptureOpen(false)} captureOnly initialLeaveType="sick" onSubmitted={() => setTeamLeaveVersion(v => v + 1)} />
         </Modal>
       )}
     </div>

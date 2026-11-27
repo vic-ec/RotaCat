@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import LeaveRequestForm from './LeaveRequestForm'
 
@@ -47,6 +47,20 @@ describe('LeaveRequestForm', () => {
     render(<LeaveRequestForm />)
     expect(screen.queryByLabelText('Leave for')).not.toBeInTheDocument()
     expect(fetchLeaveCaptureCandidates).not.toHaveBeenCalled()
+  })
+
+  it('Cancel sits to the right of Submit when the form can be closed', async () => {
+    const onCancel = vi.fn()
+    render(<LeaveRequestForm onCancel={onCancel} />)
+    const buttons = screen.getAllByRole('button').filter(b => ['Submit request', 'Cancel'].includes(b.textContent))
+    expect(buttons.map(b => b.textContent)).toEqual(['Submit request', 'Cancel'])
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(onCancel).toHaveBeenCalled()
+  })
+
+  it('no Cancel without somewhere to close to', () => {
+    render(<LeaveRequestForm />)
+    expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument()
   })
 
   it('an admin defaults to themself and files an ordinary request', async () => {

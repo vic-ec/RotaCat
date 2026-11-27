@@ -222,7 +222,10 @@ describe('RosterGridPage day blocks', () => {
   it('shows who is away in Leave and Course columns, read from approved leave', async () => {
     renderPage()
     await screen.findByText('August 2026')
-    expect(within(rowFor('2026-08-20')).getByTestId('leave-cell')).toHaveTextContent('AndersonSK')
+    // The type as a filled pill (icon and code), then the name.
+    const leaveCell = within(rowFor('2026-08-20')).getByTestId('leave-cell')
+    expect(leaveCell).toHaveTextContent('SKAnderson')
+    expect(within(leaveCell).getByTestId('leave-type-pill')).toHaveAttribute('title', 'Sick leave')
     expect(within(rowFor('2026-08-20')).getByTestId('course-cell')).toHaveTextContent('')
     expect(within(rowFor('2026-08-21')).getByTestId('leave-cell')).toHaveTextContent('')
     // A weekend row lines its Leave column up with a weekday's.
@@ -528,7 +531,7 @@ describe('RosterGridPage editing: no cover, edit bar, undo', () => {
     const row = rowFor('2026-08-26')
     await user.click(within(row).getByText('Anderson'))
     expect(document.body.textContent).not.toMatch(/Remove from this slot/)
-    expect(screen.getByRole('radio', { name: /Remove Alice Anderson from this shift/ })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: /Remove from this shift/ })).toBeInTheDocument()
   })
 })
 

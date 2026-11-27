@@ -79,7 +79,8 @@ describe('RosterVacancyManager — replace or open a published shift', () => {
       <RosterVacancyManager vacancy={VACANCY} entries={freshEntries()} shiftTypes={SHIFT_TYPES} profiles={PROFILES} onDone={onDone} />
     )
     await screen.findByText(/Alice Anderson · Mon 10 Aug · WD 08h-18h/)
-    await pick(user, 'Reason', 'Swap')
+    // (A plain move is the shift menu's Move now; the chain still runs for an absence.)
+    await pick(user, 'Reason', 'No-show')
 
     // Choosing "Replace" opens the doctor list, with Alice herself left out.
     await user.click(screen.getByRole('radio', { name: /Replace now/ }))
@@ -99,7 +100,7 @@ describe('RosterVacancyManager — replace or open a published shift', () => {
     await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1))
     const e1Update = calls.find(c => c.table === 'roster_entries' && c.eq?.[1] === 'e1')
     const e2Update = calls.find(c => c.table === 'roster_entries' && c.eq?.[1] === 'e2')
-    expect(e1Update.payload).toMatchObject({ profile_id: 'doc-b', vacated_profile_id: 'doc-a', vacated_reason: 'swap', vacated_by: 'admin-1' })
+    expect(e1Update.payload).toMatchObject({ profile_id: 'doc-b', vacated_profile_id: 'doc-a', vacated_reason: 'no_show', vacated_by: 'admin-1' })
     expect(e2Update.payload).toMatchObject({ profile_id: null, vacated_profile_id: 'doc-b', vacated_reason: 'swap' })
     expect(calls.some(c => c.table === 'shift_advertisements')).toBe(false)
     expect(calls.some(c => c.table === 'leave_requests')).toBe(false)
@@ -112,7 +113,7 @@ describe('RosterVacancyManager — replace or open a published shift', () => {
     render(<RosterVacancyManager vacancy={VACANCY} entries={entries} shiftTypes={SHIFT_TYPES} profiles={PROFILES} onDone={onDone} />)
 
     await screen.findByText(/Alice Anderson ·/)
-    await pick(user, 'Reason', 'Swap')
+    await pick(user, 'Reason', 'No-show')
     await user.click(screen.getByRole('radio', { name: /Replace now/ }))
     await user.click(await screen.findByText('Bob Brown'))
     await save(user)
@@ -274,15 +275,13 @@ describe('RosterVacancyManager — replace or open a published shift', () => {
     expect(log.entry_after).toMatchObject({ id: 'e1', profile_id: null, is_locum: false, vacated_profile_id: 'doc-a' })
   })
 
-  it('"No cover" is not offered for a swap, and is dropped if the reason changes to Swap', async () => {
+  it('"Swap" is not an absence reason (a move or swap is the shift menu\'s Rearrange, never struck through)', async () => {
     const user = userEvent.setup()
     render(<RosterVacancyManager vacancy={VACANCY} entries={freshEntries()} shiftTypes={SHIFT_TYPES} profiles={PROFILES} onDone={vi.fn()} />)
     await screen.findByText(/Alice Anderson ·/)
-    await pick(user, 'Reason', 'No-show')
-    await user.click(screen.getByRole('radio', { name: /No cover/ }))
-    await pick(user, 'Reason', 'Swap')
-    expect(screen.queryByRole('radio', { name: /No cover/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
+    await user.click(screen.getByLabelText('Reason'))
+    expect(screen.queryByRole('option', { name: 'Swap' })).not.toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'No-show' })).toBeInTheDocument()
   })
 
   it('every log row of a swap chain shares one batch id', async () => {
@@ -290,7 +289,7 @@ describe('RosterVacancyManager — replace or open a published shift', () => {
     const user = userEvent.setup()
     render(<RosterVacancyManager vacancy={VACANCY} entries={freshEntries()} shiftTypes={SHIFT_TYPES} profiles={PROFILES} onDone={onDone} />)
     await screen.findByText(/Alice Anderson ·/)
-    await pick(user, 'Reason', 'Swap')
+    await pick(user, 'Reason', 'No-show')
     await user.click(screen.getByRole('radio', { name: /Replace now/ }))
     await user.click(await screen.findByText('Bob Brown'))
     await save(user)

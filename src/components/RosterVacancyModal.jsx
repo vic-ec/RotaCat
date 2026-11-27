@@ -171,7 +171,10 @@ export default function RosterVacancyModal({ vacancy, entries, shiftTypes, profi
             id="vacancy-reason"
             value={reason}
             onChange={value => { setReason(value); if (value === 'swap' && cover === 'none') setCover('') }}
-            options={VACANCY_REASON_OPTIONS}
+            // Absences only: a move or swap is the shift menu's Rearrange
+            // (not struck through). "Swap" stays only for the follow-on
+            // shift of a replacement who was already working that day.
+            options={VACANCY_REASON_OPTIONS.filter(o => o.value !== 'swap' || vacancy.suggestedReason === 'swap')}
             placeholder="Choose a reason…"
           />
         </div>

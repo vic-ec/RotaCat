@@ -136,7 +136,9 @@ async function updateEntry(entryId, patch) {
 // with none yet. Updates the row already in the slot when there is one —
 // so a shift a doctor was taken off keeps its struck-through name beside
 // whoever fills it — and inserts otherwise.
-export async function assignCover({ rosterMonthId, cover, date, shiftCode, shiftTypeId, entryBefore = null, adminId, nameOf, batchId = newBatchId() }) {
+// `replacedProfileId`: a new row taking the place of a doctor who moved
+// off this slot (Move → fill), so its hint reads "… replaced <them>".
+export async function assignCover({ rosterMonthId, cover, date, shiftCode, shiftTypeId, entryBefore = null, replacedProfileId = null, adminId, nameOf, batchId = newBatchId() }) {
   const patch = {
     ...coverPatch(cover),
     // A doctor taking over what was a locum's slot works it on contract
@@ -163,7 +165,7 @@ export async function assignCover({ rosterMonthId, cover, date, shiftCode, shift
     action: wasNoCover ? 'slot_add' : 'assign',
     // For a row with a vacated doctor the "before" names them, so History
     // shows who the change affected.
-    profileIdBefore: entryBefore?.profile_id ?? entryBefore?.vacated_profile_id ?? null,
+    profileIdBefore: entryBefore?.profile_id ?? entryBefore?.vacated_profile_id ?? replacedProfileId ?? null,
     profileIdAfter: coverProfileId(cover),
     changedBy: adminId,
     locumName: cover.kind === 'contact' ? cover.name : null,
@@ -381,6 +383,63 @@ export async function moveEntry({ rosterMonthId, entry, shiftCodeBefore, targetD
     sideEffects: emptySideEffects(),
   })
   return { batchId, description: `${holderName(entry, nameOf)} moved to ${shiftLabel(targetDate, targetShiftCode)}`, logError }
+}
+
+// ── Rearranging (not absences) ──────────────────────────────────────────
+// A new open "[ ]" slot on a day and shift, for a slot a doctor moved off
+// or was removed from and that is to be filled by a locum.
+async function insertOpenSlot({ rosterMonthId, date, shiftCode, shiftTypeId, replacedProfileId = null, adminId, batchId }) {
+  const { data, error } = await supabase.from('roster_entries')
+    .insert({ roster_month_id: rosterMonthId, date, shift_type_id: shiftTypeId, ...OPEN_SLOT_PATCH, is_manual_override: true, position: 99 })
+    .select('*').maybeSingle()
+  if (error) throw new Error(error.message)
+  const entryAfter = data ? { ...data, date: data.date?.slice(0, 10) } : null
+  const { error: logError } = await logRosterEntryChange({
+    rosterMonthId, rosterEntryId: entryAfter?.id ?? null, entryDate: date, shiftCode, action: 'slot_add',
+    profileIdBefore: replacedProfileId, profileIdAfter: null, changedBy: adminId, batchId,
+    entryBefore: null, entryAfter: entrySnapshot(entryAfter), sideEffects: emptySideEffects(),
+  })
+  return logError
+}
+
+// "Move to another shift": the doctor's own row goes to the new day and
+// shift (their hours follow them), logged as a move so its hint reads
+// "moved here from …". The slot they leave is, by `leave`:
+//   'close'  left empty — the shift runs one short;
+//   'fill'   taken by `cover` (a doctor or locum), "… replaced <them>";
+//   'open'   an open "[ ]" locum slot.
+// Never an absence: nobody is struck through. One batch, so one Undo.
+export async function moveDoctor({ rosterMonthId, entry, shiftCode, targetDate, targetShiftCode, targetShiftTypeId, entries, leave = 'close', cover = null, adminId, nameOf, batchId = newBatchId() }) {
+  if (!entry?.profile_id || entry.is_locum) throw new Error('Only a doctor on a shift can be moved this way.')
+  if (targetDate === entry.date && targetShiftCode === shiftCode) throw new Error('Pick a different shift.')
+  if (leave === 'fill' && !cover) throw new Error('Choose who takes the slot.')
+  const moved = await moveEntry({ rosterMonthId, entry, shiftCodeBefore: shiftCode, targetDate, targetShiftCode, targetShiftTypeId, entries, adminId, nameOf, batchId })
+  let tail = 'its slot is closed'
+  let logError = moved.logError
+  if (leave === 'fill') {
+    const filled = await assignCover({ rosterMonthId, cover, date: entry.date, shiftCode, shiftTypeId: entry.shift_type_id, replacedProfileId: entry.profile_id, adminId, nameOf, batchId })
+    logError = logError || filled.logError
+    tail = `${coverName(cover, nameOf)} takes the slot`
+  } else if (leave === 'open') {
+    logError = logError || await insertOpenSlot({ rosterMonthId, date: entry.date, shiftCode, shiftTypeId: entry.shift_type_id, replacedProfileId: entry.profile_id, adminId, batchId })
+    tail = 'its slot is open to a locum'
+  }
+  return { batchId, description: `${moved.description}; ${shiftLabel(entry.date, shiftCode)}: ${tail}`, logError }
+}
+
+// "Remove from this shift" (a reshuffle, not an absence): 'close' deletes
+// the row (the shift runs short), 'open' turns it into an open "[ ]" slot.
+export async function removeFromShift({ rosterMonthId, entry, shiftCode, mode = 'close', adminId, nameOf, batchId = newBatchId() }) {
+  if (mode === 'close') return removeEntry({ rosterMonthId, entry, shiftCode, adminId, nameOf, batchId })
+  const patch = { ...OPEN_SLOT_PATCH, is_manual_override: true, counts_toward_contract_hours: entry.counts_toward_contract_hours }
+  await updateEntry(entry.id, patch)
+  const entryAfter = { ...entry, ...patch }
+  const { error: logError } = await logRosterEntryChange({
+    rosterMonthId, rosterEntryId: entry.id, entryDate: entry.date, shiftCode, action: 'remove',
+    profileIdBefore: entry.profile_id, profileIdAfter: null, changedBy: adminId, batchId,
+    entryBefore: entrySnapshot(entry), entryAfter: entrySnapshot(entryAfter), sideEffects: emptySideEffects(),
+  })
+  return { batchId, description: `${holderName(entry, nameOf)} removed from ${shiftLabel(entry.date, shiftCode)}; the slot is open to a locum`, logError }
 }
 
 // ── Swap two doctors' shifts ─────────────────────────────────────────────

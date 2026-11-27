@@ -2,6 +2,7 @@ import { shortDate } from './reviewLog'
 import { locumDisplayName } from './locumCover'
 import { adjustedTimesLabel } from './shiftTimes'
 import { LEAVE_TYPE_LABELS } from './leaveRequests'
+import { labelForShiftCode } from './shiftLabels'
 
 // What the roster's edit marker (a small pen on a name) says: who is on the
 // shift and how they got there, for a shift changed by hand. Null for a
@@ -37,7 +38,7 @@ export function editHint({ entry, change, nameOf, leaveType = null }) {
       : REASONS[entry.vacated_reason] ? ` — ${REASONS[entry.vacated_reason]}` : ''
     text = `${holder} covering ${nameOf(entry.vacated_profile_id) || 'a doctor'}${reason}`
   } else if (change?.action === 'move' && change.date_before) {
-    text = `${holder}, moved here from ${shortDate(change.date_before)}`
+    text = `${holder}, moved here from ${shortDate(change.date_before)}${change.shift_code_before ? ` ${labelForShiftCode(change.shift_code_before)}` : ''}`
   } else if (change?.reason === 'swap') {
     const before = change.profile_id_before && change.profile_id_before !== entry.profile_id ? nameOf(change.profile_id_before) : null
     text = before ? `${holder}, swapped with ${before}` : `${holder}, swapped in`
@@ -51,5 +52,9 @@ export function editHint({ entry, change, nameOf, leaveType = null }) {
     text = `${holder}, changed by hand`
   }
   const times = adjustedTimesLabel(entry)
-  return times ? `${text} · works ${times}` : text
+  // Who made the change and when, where the log says.
+  const by = change?.changed_by ? nameOf(change.changed_by) : null
+  const when = change?.changed_at ? shortDate(String(change.changed_at).slice(0, 10)) : null
+  const stamp = by && when ? ` · ${by}, ${when}` : ''
+  return `${times ? `${text} · works ${times}` : text}${stamp}`
 }

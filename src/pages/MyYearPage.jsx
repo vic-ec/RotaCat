@@ -191,11 +191,28 @@ function MyYear({ profileId, own }) {
   ]
 
   // At most one filled button on screen: Request leave on your own
-  // Overview, Capture leave when an admin is on someone else's Leave tab.
+  // Overview, Capture leave when an admin is on someone else's Overview or
+  // Leave tab, Log late arrival on their Attendance.
   const action = own && tab === 'overview'
     ? { label: 'Request leave', short: 'Request', onClick: () => setFormOpen(true) }
-    : !own && isAdmin && tab === 'leave' ? { label: 'Capture leave', short: 'Capture', onClick: () => setFormOpen(true) }
+    : !own && isAdmin && (tab === 'overview' || tab === 'leave') ? { label: 'Capture leave', short: 'Capture', onClick: () => setFormOpen(true) }
     : !own && isAdmin && tab === 'attendance' ? { label: 'Log late arrival', short: 'Log late', onClick: () => setLateForm({}) } : null
+
+  // The action is its + alone under 420px (its name on hover or tap), a
+  // short label to 640px, then its full name; every control is 30px tall.
+  const actionButton = action && (
+    <button type="button" onClick={action.onClick} aria-label={action.label} title={action.label} className="btn-primary h-[30px] w-[30px] flex-shrink-0 justify-center whitespace-nowrap p-0 text-sm min-[420px]:w-auto min-[420px]:px-3">
+      <Plus className="h-4 w-4" aria-hidden="true" />
+      <span className="hidden min-[420px]:inline sm:hidden">{action.short}</span>
+      <span className="hidden sm:inline">{action.label}</span>
+    </button>
+  )
+  const yearControls = (
+    <>
+      <DateStepper unit="year" year={year} onChange={y => { setParam('year', y); setSelectedDate(y === currentYear ? today : null) }} nowrap />
+      <GoToMenu links={goTo} />
+    </>
+  )
 
   return (
     <div className="mx-auto max-w-7xl">
@@ -212,31 +229,23 @@ function MyYear({ profileId, own }) {
         </Link>
       )}
 
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
-        <div className="flex min-w-0 items-center gap-3">
-          {!own && <ProfileAvatar profile={person} size={40} />}
-          <h1 className="min-w-0 truncate font-display text-xl font-bold text-ink md:text-2xl">{title}</h1>
-          {!own && person.category && <Tag>{categoryLabel(person.category)}</Tag>}
-        </div>
-        {/* One row at every width, every control the stepper's 30px: the
-            year, Go to and the page's one action. The action is its + alone
-            under 420px (its name on hover or tap, HintLayer), a short label
-            to 640px, then its full name, so the row never runs off a
-            phone's edge. */}
-        <div className="flex flex-nowrap items-center gap-2">
-          <DateStepper unit="year" year={year} onChange={y => { setParam('year', y); setSelectedDate(y === currentYear ? today : null) }} nowrap />
-          <GoToMenu links={goTo} />
-          {action && (
-            <button type="button" onClick={action.onClick} aria-label={action.label} title={action.label} className="btn-primary h-[30px] w-[30px] flex-shrink-0 justify-center whitespace-nowrap p-0 text-sm min-[420px]:w-auto min-[420px]:px-3">
-              <Plus className="h-4 w-4" aria-hidden="true" />
-              <span className="hidden min-[420px]:inline sm:hidden">{action.short}</span>
-              <span className="hidden sm:inline">{action.label}</span>
-            </button>
-          )}
-        </div>
+      <div className="mb-4 flex min-w-0 items-center gap-3">
+        {!own && <ProfileAvatar profile={person} size={40} />}
+        <h1 className="min-w-0 truncate font-display text-xl font-bold text-ink md:text-2xl">{title}</h1>
+        {!own && person.category && <Tag>{categoryLabel(person.category)}</Tag>}
       </div>
 
       <PageTabs tabs={tabs} active={tab} onChange={key => setParam('tab', key)} ariaLabel={title} />
+
+      {/* Under the tabs, from the panel's left edge: the page's one action
+          first, then the year and Go to straight after it. The Leave tab
+          puts them in its own row with search and Filter. */}
+      {tab !== 'leave' && (
+        <div className={`mt-3 flex flex-nowrap items-center gap-2 ${tab === 'attendance' ? 'mx-auto md:max-w-2xl' : ''}`} data-testid="my-year-controls">
+          {actionButton}
+          {yearControls}
+        </div>
+      )}
 
       {/* The Staff list's spacing: 12px under the tabs. */}
       <div className="mt-3">
@@ -257,7 +266,8 @@ function MyYear({ profileId, own }) {
             onSelectDate={setSelectedDate}
           />
         )}
-        {tab === 'leave' && <MyYearLeave rows={view.record} data={data} profileId={profileId} today={today} isAdmin={isAdmin} own={own} />}
+        {/* Leave and Attendance: the Roster and Planners lists' width. */}
+        {tab === 'leave' && <div className="mx-auto md:max-w-2xl"><MyYearLeave rows={view.record} data={data} profileId={profileId} today={today} isAdmin={isAdmin} own={own} leading={actionButton} controls={yearControls} /></div>}
         {tab === 'shifts' && (
           <MyYearShifts
             year={year}
@@ -270,6 +280,7 @@ function MyYear({ profileId, own }) {
           />
         )}
         {tab === 'attendance' && (
+          <div className="mx-auto md:max-w-2xl">
           <MyYearAttendance
             records={lateRecords}
             admin={isAdmin}
@@ -277,6 +288,7 @@ function MyYear({ profileId, own }) {
             profileId={profileId}
             onEdit={record => setLateForm({ record })}
           />
+          </div>
         )}
       </div>
 

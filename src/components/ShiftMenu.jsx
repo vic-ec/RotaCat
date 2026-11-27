@@ -130,6 +130,90 @@ function MoveCoverForm({ entry, shiftCode, who, shiftsForDate, onSave, onBack })
   )
 }
 
+// "Move <doctor> to another shift": a day from the roster's month (a strip,
+// starting on the shift's own day), one of that day's shifts with who is
+// on it, and what becomes of the slot left behind. `occupants(date, code)`
+// names who is on a shift; `warnings(date, code)` the rule checks
+// (rest after a night, leave), shown as notes, never blocking.
+function dayList(from, to) {
+  const out = []
+  const d = new Date(`${from}T00:00:00`)
+  const end = new Date(`${to}T00:00:00`)
+  while (d <= end) {
+    out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`)
+    d.setDate(d.getDate() + 1)
+  }
+  return out
+}
+const WEEKDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+function MoveForm({ entry, shiftCode, who, monthStart, monthEnd, shiftsForDate, occupants, warnings, onSave, onBack }) {
+  const [date, setDate] = useState(entry.date)
+  const [code, setCode] = useState('')
+  const [leave, setLeave] = useState('close')
+  const stripRef = useRef(null)
+  const days = monthStart && monthEnd ? dayList(monthStart, monthEnd) : [entry.date]
+  const shifts = shiftsForDate(date).filter(o => !(date === entry.date && o.code === shiftCode))
+  const notes = code ? warnings(date, code) : []
+  return (
+    <div className="space-y-2 p-3" data-testid="move-form">
+      <p className="text-xs font-semibold text-ink-muted">Day</p>
+      <div ref={stripRef} className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1" role="radiogroup" aria-label="Day">
+        {days.map(d => {
+          const dt = new Date(`${d}T00:00:00`)
+          const on = d === date
+          const weekend = dt.getDay() === 0 || dt.getDay() === 6
+          return (
+            <button
+              key={d}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              aria-label={shortDate(d)}
+              ref={el => { if (el && d === entry.date && !stripRef.current?.dataset.scrolled) { el.scrollIntoView?.({ inline: 'center', block: 'nearest' }); if (stripRef.current) stripRef.current.dataset.scrolled = '1' } }}
+              onClick={() => { setDate(d); setCode('') }}
+              className={`flex w-12 flex-shrink-0 flex-col items-center rounded-lg border py-1 text-[10px] ${
+                on ? 'border-accent bg-accent text-on-fill' : `border-slate-line ${weekend ? 'bg-accent-tint' : 'bg-canvas-raised'} text-ink-muted`
+              }`}
+            >
+              {WEEKDAY[dt.getDay()]}
+              <span className={`text-sm font-semibold ${on ? 'text-on-fill' : 'text-ink'}`}>{dt.getDate()}</span>
+            </button>
+          )
+        })}
+      </div>
+      <p className="pt-1 text-xs font-semibold text-ink-muted">Shift on {shortDate(date)}</p>
+      <div className="overflow-hidden rounded-lg border border-slate-line" role="radiogroup" aria-label="Shift">
+        {shifts.length === 0 && <p className="px-3 py-2 text-sm text-ink-muted">No other shift that day.</p>}
+        {shifts.map(o => (
+          <label key={o.code} className={`flex cursor-pointer items-center gap-2 border-t border-slate-line px-3 py-2 text-sm first:border-t-0 ${code === o.code ? 'bg-accent-tint' : 'hover:bg-canvas-sunken'}`}>
+            <input type="radio" name="move-shift" checked={code === o.code} onChange={() => setCode(o.code)} className="h-4 w-4 flex-shrink-0 accent-[rgb(var(--color-accent))]" />
+            <span className="w-24 flex-shrink-0 font-medium text-ink">{o.label}</span>
+            <span className="min-w-0 truncate text-xs text-ink-muted">{occupants(date, o.code) || 'Nobody yet'}</span>
+          </label>
+        ))}
+      </div>
+      {notes.map(n => <p key={n} className="rounded bg-flagAmber-bg px-2 py-1 text-xs text-flagAmber">{n}</p>)}
+      <p className="pt-1 text-xs font-semibold text-ink-muted">The slot {who} leaves ({shortDate(entry.date)}, {labelForShiftCode(shiftCode)})</p>
+      <div role="radiogroup" aria-label="The slot left behind">
+        {[
+          { value: 'close', label: 'Close it', hint: 'No one replaces them; the shift runs one short' },
+          { value: 'fill', label: 'Fill it with someone', hint: 'Pick a doctor or locum next' },
+          { value: 'open', label: 'Open a locum slot', hint: 'A [ ] slot, can be advertised' },
+        ].map(c => (
+          <label key={c.value} className="flex cursor-pointer items-start gap-2 py-1.5 text-sm">
+            <input type="radio" name="move-leave" checked={leave === c.value} onChange={() => setLeave(c.value)} className="mt-[3px] h-4 w-4 flex-shrink-0 accent-[rgb(var(--color-accent))]" />
+            <span><span className="font-medium text-ink">{c.label}</span><span className="block text-xs text-ink-muted">{c.hint}</span></span>
+          </label>
+        ))}
+      </div>
+      <div className="flex flex-nowrap gap-2 pt-1">
+        <button type="button" onClick={onBack} className="btn-secondary min-h-[44px] flex-1 whitespace-nowrap text-sm md:min-h-0">Back</button>
+        <button type="button" disabled={!code} onClick={() => onSave({ date, code, leave })} className="btn-primary min-h-[44px] flex-1 whitespace-nowrap text-sm md:min-h-0">{leave === 'fill' ? 'Next' : 'Move'}</button>
+      </div>
+    </div>
+  )
+}
+
 // "Change why <name> is off": the reason recorded when they came off the
 // shift. Moving off an active leave asks whether to cancel that leave too.
 const REASON_CHOICES = [
@@ -235,6 +319,10 @@ export default function ShiftMenu({
   // { exists } when a late arrival can be logged against this shift (see
   // the page's lateOptionFor), else null.
   lateArrival = null, onLateArrival,
+  // Rearranging (not absences): Move to another shift and Remove from this
+  // shift. occupants(date, code) / moveWarnings(date, code) feed the Move
+  // picker (see MoveForm).
+  onMove, onRemoveFromShift, occupants = () => '', moveWarnings = () => [],
   onClose,
 }) {
   const wide = useIsDesktop(768)
@@ -244,6 +332,9 @@ export default function ShiftMenu({
   const [addingLocum, setAddingLocum] = useState(false)
   // Put back from Replace (over the cover) rather than on an empty slot.
   const [putBackOver, setPutBackOver] = useState(false)
+  // Move → "Fill it with someone": the chosen day and shift, while the
+  // picker for the slot left behind is open.
+  const [moveTarget, setMoveTarget] = useState(null)
 
   const vacatedName = entry?.vacated_profile_id ? nameOf(entry.vacated_profile_id) : null
   const holder = entry?.profile_id && !entry.is_locum ? nameOf(entry.profile_id) : null
@@ -262,6 +353,30 @@ export default function ShiftMenu({
   const title = `${what} · ${shortDate(date)} · ${labelForShiftCode(shiftCode)}${vacatedName && kind !== 'no-cover' ? ` · covering ${vacatedName} (${reasonText})` : ''}`
 
   const close = () => onClose()
+
+  // Move → fill: who takes the slot the doctor leaves.
+  if (step === 'move-fill' && moveTarget) {
+    const done = cover => { onMove(entry, { ...moveTarget, leave: 'fill', cover }); close() }
+    return (
+      <DoctorDropdown
+        profiles={profiles.filter(p => p.id !== entry.profile_id)}
+        displayNames={displayNames}
+        search={search}
+        onSearchChange={setSearch}
+        onSelect={id => done({ kind: 'doctor', id })}
+        locums={locums}
+        contacts={contacts}
+        onSelectCover={done}
+        onNewLocum={null}
+        onRemove={null}
+        onBack={() => setStep('move')}
+        cancelLabel="Cancel"
+        onClose={close}
+        date={date}
+        shiftCode={labelForShiftCode(shiftCode)}
+      />
+    )
+  }
 
   // The picker inside Replace / Fill: the existing list, with no remove.
   if (step === 'pick' || step === 'pick-cover') {
@@ -372,6 +487,36 @@ export default function ShiftMenu({
         }}
       />
     )
+  } else if (step === 'move') {
+    body = (
+      <MoveForm
+        entry={entry}
+        shiftCode={shiftCode}
+        who={holder}
+        monthStart={monthStart}
+        monthEnd={monthEnd}
+        shiftsForDate={shiftsForDate}
+        occupants={occupants}
+        warnings={(d, c) => moveWarnings(entry, d, c)}
+        onBack={() => setStep(null)}
+        onSave={({ date: targetDate, code, leave }) => {
+          if (leave === 'fill') { setMoveTarget({ date: targetDate, code }); setStep('move-fill'); return }
+          onMove(entry, { date: targetDate, code, leave }); close()
+        }}
+      />
+    )
+  } else if (step === 'remove') {
+    body = (
+      <Options
+        groups={[{ title: `Remove ${holder} — a reshuffle, not an absence`, choices: [
+          { value: 'open', label: 'Open the slot to a locum', hint: 'A [ ] slot, filled or advertised later' },
+          { value: 'close', label: 'Close the slot', hint: 'Nobody replaces them; the shift runs one short', danger: true },
+        ] }]}
+        closeLabel="Back"
+        onClose={() => setStep(null)}
+        onContinue={chosen => { onRemoveFromShift(entry, chosen.value); close() }}
+      />
+    )
   } else if (step === 'move-cover') {
     body = <MoveCoverForm entry={entry} shiftCode={shiftCode} who={coverLabel} shiftsForDate={shiftsForDate} onBack={() => setStep(null)} onSave={target => { onMoveCover(entry, target); close() }} />
   } else if (step === 'reason') {
@@ -468,6 +613,21 @@ export default function ShiftMenu({
         timesChoice,
       ].filter(Boolean),
     }
+    // Rearranging a doctor's shift (never an absence: nobody is struck
+    // through; the moved or changed name gets the hand-edit marker).
+    const rearrangeGroup = holder && {
+      title: 'Rearrange',
+      choices: [
+        onMove && { value: 'move', label: 'Move to another shift', hint: `To another time or day. Nobody takes ${possessive(holder)} place unless you choose` },
+        swapChoice,
+        { value: 'pick', label: 'Replace with someone else', hint: `Someone else works this shift; ${holder} comes off it` },
+        onRemoveFromShift && { value: 'remove', label: 'Remove from this shift', hint: 'A reshuffle, not an absence: close the slot or open it to a locum' },
+      ].filter(Boolean),
+    }
+    const timesGroup = {
+      title: lateGroup ? 'Times and attendance' : 'Times',
+      choices: [timesChoice, ...(lateGroup ? lateGroup.choices : [])],
+    }
     const advertChoice = hasOpenAdvert
       ? { value: 'unadvertise', label: 'Stop advertising', hint: 'The advert is set to cancelled; the slot stays open' }
       : { value: 'advertise', label: 'Advertise to locums', hint: 'Locums with an account can claim it' }
@@ -486,17 +646,13 @@ export default function ShiftMenu({
     const groups = {
       add: [{ choices: [{ value: 'pick', label: 'Add a doctor or locum', hint: 'Pick who works this shift' }] }],
       vacancy: covered ? [coverGroup, lateGroup, absentGroup] : [
-        { choices: [
-          { value: 'vacancy', label: `Take ${holder} off this shift`, hint: 'Say why, and what happens to the shift' },
-          swapChoice,
-          timesChoice,
-        ].filter(Boolean) },
-        lateGroup,
+        rearrangeGroup,
+        { title: 'Absence', choices: [
+          { value: 'vacancy', label: 'Mark absent', hint: 'Sick, on leave, no-show… Struck through, with cover' },
+        ] },
+        timesGroup,
       ],
-      'draft-doctor': covered ? [coverGroup, absentGroup] : [
-        { choices: [{ value: 'pick', label: 'Replace with…', hint: 'Pick who takes the shift instead' }, swapChoice, timesChoice].filter(Boolean) },
-        { choices: [{ value: 'confirm-remove', label: `Remove ${holder} from this shift`, hint: 'The shift is left empty', danger: true }] },
-      ],
+      'draft-doctor': covered ? [coverGroup, absentGroup] : [rearrangeGroup, timesGroup],
       'slot-vacated': [
         { title: 'The locum slot', choices: [
           { value: 'pick', label: 'Fill with a doctor or locum', hint: `${vacatedName} stays struck through beside them` },
@@ -527,7 +683,7 @@ export default function ShiftMenu({
     const run = chosen => {
       switch (chosen.value) {
         case 'pick': case 'pick-cover': case 'confirm-remove': case 'confirm-slot': case 'times': case 'swap':
-        case 'replace': case 'remove-cover': case 'move-cover': case 'reason':
+        case 'replace': case 'remove-cover': case 'move-cover': case 'reason': case 'move': case 'remove':
           setStep(chosen.value); break
         case 'vacancy': onVacancy(entry); close(); break
         case 'late': onLateArrival(entry); close(); break

@@ -1481,9 +1481,12 @@ export default function StaffListPage() {
                   <div className="card overflow-x-auto" data-testid="staff-section-panel">
                     <table className="w-full min-w-[680px] table-fixed border-collapse text-xs">
                       <colgroup>
+                        {/* Contact takes a share of the width (it grows and
+                            shrinks with the window); a long email truncates
+                            inside it rather than running into Status. */}
                         <col />
-                        <col className="w-44" />
-                        <col className="w-60" />
+                        <col className="w-[30%]" />
+                        <col className="w-52" />
                         {isAdmin && <col className="w-24" />}
                         {canContact && <col className="w-32" />}
                       </colgroup>
@@ -1552,9 +1555,9 @@ export default function StaffListPage() {
                                       </div>
                                     </div>
                                   </td>
-                                  <td className="px-2.5 py-1.5 text-ink">
-                                    <div className="space-y-0.5">
-                                      <div className="flex items-center gap-1.5 whitespace-nowrap">
+                                  <td className="overflow-hidden px-2.5 py-1.5 text-ink">
+                                    <div className="min-w-0 space-y-0.5">
+                                      <div className="flex min-w-0 items-center gap-1.5 whitespace-nowrap">
                                         <PhoneIcon className="h-3 w-3 flex-shrink-0 text-ink-muted" />
                                         {formattedPhone ? (
                                           <a
@@ -1566,18 +1569,19 @@ export default function StaffListPage() {
                                           </a>
                                         ) : <span>—</span>}
                                       </div>
-                                      <div className="flex items-center gap-1.5 whitespace-nowrap">
+                                      <div className="flex min-w-0 items-center gap-1.5 whitespace-nowrap">
                                         <EmailIcon className="h-3 w-3 flex-shrink-0 text-ink-muted" />
                                         {targetEmail && person.email_verified ? (
                                           <a
                                             href={`mailto:${targetEmail}`}
                                             onClick={e => e.stopPropagation()}
-                                            className="hover:underline"
+                                            title={targetEmail}
+                                            className="min-w-0 truncate hover:underline"
                                           >
                                             {targetEmail}
                                           </a>
                                         ) : (
-                                          <span>{targetEmail || '—'}</span>
+                                          <span className="min-w-0 truncate" title={targetEmail || undefined}>{targetEmail || '—'}</span>
                                         )}
                                         {targetEmail && person.email_verified && (
                                           <CircleCheck title="Email verified" className="h-3 w-3 flex-shrink-0 text-success" />

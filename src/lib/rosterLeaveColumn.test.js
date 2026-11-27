@@ -25,7 +25,7 @@ describe('leaveByDate', () => {
       zz: [['2026-11-03', '2026-11-03', 'annual', 'r9']],
     }
     const out = leaveByDate(map, ['2026-11-03'], nameOf)
-    expect(out['2026-11-03'].leave).toEqual([{ profileId: 'a', name: 'Rivers', code: '' }])
+    expect(out['2026-11-03'].leave).toEqual([{ profileId: 'a', name: 'Rivers', type: null, code: '' }])
   })
 })
 

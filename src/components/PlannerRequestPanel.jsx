@@ -1,3 +1,4 @@
+import { Plus } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 // The one "here's where you stand, here's how to ask" panel, shared by all
@@ -42,7 +43,9 @@ export default function PlannerRequestPanel({ eyebrow, aside, stepper, children,
       {headline}
       {capacityBar && <div className="mt-3">{capacityBar}</div>}
       {(canSubmitLeave || isAdmin) && actionLabel && (
-        <button type="button" onClick={onAction} className="btn-primary mt-2 block w-full text-center">
+        // "+" in front, as the Dashboard's and My year's Request leave.
+        <button type="button" onClick={onAction} className="btn-primary mt-2 flex w-full items-center justify-center gap-1.5 text-center">
+          <Plus className="h-4 w-4" aria-hidden="true" />
           {actionLabel}
         </button>
       )}

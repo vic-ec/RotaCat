@@ -207,6 +207,16 @@ describe('annualDaysUsedInYear', () => {
 describe('upcomingRequests', () => {
   const today = '2026-08-07'
 
+  it('leaves out rejected and cancelled requests: only approved and pending are upcoming', () => {
+    const result = upcomingRequests([
+      { id: 'a', date_from: '2026-08-10', date_to: '2026-08-12', status: 'approved' },
+      { id: 'p', date_from: '2026-08-11', date_to: '2026-08-12', status: 'pending' },
+      { id: 'r', date_from: '2026-08-12', date_to: '2026-08-14', status: 'rejected' },
+      { id: 'c', date_from: '2026-08-13', date_to: '2026-08-14', status: 'cancelled' },
+    ], today)
+    expect(result.map(r => r.id)).toEqual(['a', 'p'])
+  })
+
   it('excludes requests that have already fully passed', () => {
     const result = upcomingRequests(
       [{ id: 'past', date_from: '2026-07-01', date_to: '2026-07-03' }],

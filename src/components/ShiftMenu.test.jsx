@@ -18,6 +18,7 @@ function handlers() {
   return {
     onVacancy: vi.fn(), onAssign: vi.fn(), onRemoveEntry: vi.fn(), onRemoveLocum: vi.fn(), onAddCover: vi.fn(), onRemoveSlot: vi.fn(),
     onAdvertise: vi.fn(), onUnadvertise: vi.fn(), onReinstate: vi.fn(), onChangeTimes: vi.fn(), onClose: vi.fn(),
+    onMove: vi.fn(), onRemoveFromShift: vi.fn(),
   }
 }
 function open(entry, over = {}) {
@@ -42,14 +43,62 @@ async function choose(user, name) {
 beforeEach(() => { window.matchMedia = vi.fn().mockReturnValue({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() }) })
 
 describe('ShiftMenu — which menu opens (the spec table)', () => {
-  it('a doctor on a published roster: take them off (the vacancy form) or change their times', async () => {
+  it('a doctor on a published roster: Rearrange (Move, Replace, Remove), Absence (Mark absent → the vacancy form), Times', async () => {
     const user = userEvent.setup()
     const h = open(row)
     expect(within(dialog()).getByRole('button', { name: 'Continue' })).toBeDisabled()
+    expect(within(dialog()).getByText('Rearrange')).toBeInTheDocument()
+    expect(within(dialog()).getByText('Absence')).toBeInTheDocument()
+    option(/Move to another shift/)
+    option(/Replace with someone else/)
+    option(/Remove from this shift/)
     option(/Change times/)
-    await choose(user, /Take Alice Anderson off this shift/)
+    await choose(user, /Mark absent/)
     expect(h.onVacancy).toHaveBeenCalledWith(row)
     expect(h.onClose).toHaveBeenCalled()
+  })
+
+  it('Move to another shift: a day, a shift (with who is on it), and the slot left behind', async () => {
+    const user = userEvent.setup()
+    const h = open(row, {
+      monthStart: '2026-08-01', monthEnd: '2026-08-31',
+      shiftsForDate: () => [{ code: 'WD_08', label: 'WD 08h-18h' }, { code: 'WD_12', label: 'WD 12h-22h' }],
+      occupants: (d, c) => (c === 'WD_12' ? 'Brown' : ''),
+      moveWarnings: () => ['On approved leave that day.'],
+    })
+    await choose(user, /Move to another shift/)
+    const form = screen.getByTestId('move-form')
+    // The current shift isn't offered on its own day.
+    expect(within(form).queryByRole('radio', { name: /WD 08h-18h/ })).not.toBeInTheDocument()
+    await user.click(within(form).getByRole('radio', { name: 'Wed 12 Aug' }))
+    expect(within(form).getByText('Brown')).toBeInTheDocument
+    await user.click(within(form).getAllByRole('radio').find(r => r.closest('label')?.textContent.includes('WD 12h-22h')))
+    expect(within(form).getByText('On approved leave that day.')).toBeInTheDocument()
+    await user.click(within(form).getByRole('button', { name: 'Move' }))
+    expect(h.onMove).toHaveBeenCalledWith(row, { date: '2026-08-12', code: 'WD_12', leave: 'close' })
+  })
+
+  it('Move → Fill it with someone: picks who takes the slot left behind', async () => {
+    const user = userEvent.setup()
+    const h = open(row, {
+      monthStart: '2026-08-01', monthEnd: '2026-08-31',
+      shiftsForDate: () => [{ code: 'WD_08', label: 'WD 08h-18h' }, { code: 'WD_12', label: 'WD 12h-22h' }],
+    })
+    await choose(user, /Move to another shift/)
+    const form = screen.getByTestId('move-form')
+    await user.click(within(form).getAllByRole('radio').find(r => r.closest('label')?.textContent.includes('WD 12h-22h')))
+    await user.click(within(form).getByRole('radio', { name: /Fill it with someone/ }))
+    await user.click(within(form).getByRole('button', { name: 'Next' }))
+    await user.click(screen.getByText(/Brown/))
+    expect(h.onMove).toHaveBeenCalledWith(row, { date: '2026-08-10', code: 'WD_12', leave: 'fill', cover: { kind: 'doctor', id: 'doc-b' } })
+  })
+
+  it('Remove from this shift (a reshuffle): open the slot to a locum, or close it', async () => {
+    const user = userEvent.setup()
+    const h = open(row)
+    await choose(user, /Remove from this shift/)
+    await choose(user, /Open the slot to a locum/)
+    expect(h.onRemoveFromShift).toHaveBeenCalledWith(row, 'open')
   })
 
   it('Change times saves a start and end through onChangeTimes, and validates both are given', async () => {
@@ -66,16 +115,16 @@ describe('ShiftMenu — which menu opens (the spec table)', () => {
     expect(h.onClose).toHaveBeenCalled()
   })
 
-  it('a doctor on a draft roster: Replace with… / Remove {name} from this shift (confirm)', async () => {
+  it('a doctor on a draft roster: the same Rearrange menu, no absence', async () => {
     const user = userEvent.setup()
     const h = open(row, { rosterStatus: 'draft' })
     expect(dialog()).toHaveAccessibleName(/Alice Anderson · Mon 10 Aug · WD 08h-18h/)
-    option(/Replace with…/)
+    option(/Replace with someone else/)
     option(/Change times/)
-    await choose(user, /Remove Alice Anderson from this shift/)
-    expect(h.onRemoveEntry).not.toHaveBeenCalled()
-    await user.click(screen.getByRole('button', { name: 'Remove Alice Anderson' }))
-    expect(h.onRemoveEntry).toHaveBeenCalledWith(row)
+    expect(within(dialog()).queryByRole('radio', { name: /Mark absent/ })).not.toBeInTheDocument()
+    await choose(user, /Remove from this shift/)
+    await choose(user, /Close the slot/)
+    expect(h.onRemoveFromShift).toHaveBeenCalledWith(row, 'close')
   })
 
   it('an open [ ] slot with a vacated doctor: the slot menu, with Put back in its own section', async () => {

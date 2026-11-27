@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
-import { ChevronRight } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
 import LeaveRequestRow from '../LeaveRequestRow'
 import { useIsDesktop } from '../../lib/useIsDesktop'
 import Toolbar from '../Toolbar'
@@ -11,19 +10,10 @@ import { formatShortDateRange } from '../../lib/dateRange'
 import { LEAVE_TYPE_LABELS } from '../../lib/leaveRequests'
 import { totalLeaveDays } from '../../lib/leaveMatrix'
 import { reviewStatusLabel } from '../../lib/statusLabels'
-import { leaveBucket, leaveRecordCounts, coverForRequest, coverSummary, isCountedLeave } from '../../lib/myYear'
+import { coverForRequest, coverSummary, isCountedLeave } from '../../lib/myYear'
 import { rosterLinkForDate } from '../../lib/myYearData'
 import { leaveDestination } from '../../lib/myYearLinks'
-import Tag from '../Tag'
-import LeaveCodeBox from './LeaveCodeBox'
 
-const STATUS_TONE = { pending: 'warning', approved: 'success', rejected: 'danger', cancelled: 'neutral' }
-const FILTERS = [
-  { key: 'all', label: 'All' },
-  { key: 'annual', label: 'Annual' },
-  { key: 'sick', label: 'Sick' },
-  { key: 'other', label: 'Other' },
-]
 const PHONE_LIMIT = 5
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const STATUS_OPTIONS = ['approved', 'pending', 'rejected', 'cancelled'].map(v => ({ value: v, label: reviewStatusLabel(v) }))
@@ -37,15 +27,19 @@ function monthsOf(r) {
   return out
 }
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
-const linkClass = 'font-medium text-accent hover:text-accent-dark'
 
 // `?request=<id>` (a link to one request, e.g. a sick day from the
 // Overview): the list shows in full, scrolls to that request and rings it.
-export default function MyYearLeave({ rows, data, profileId, today, isAdmin = false, own = false }) {
+// `leading` (the page's one action, e.g. Capture leave) and `controls` (the
+// year stepper and Go to) share this tab's one controls row: on a desktop
+// action, search, Filter, then the year controls at the right; on a phone
+// action and year controls (search and Filter are the FAB's). The four
+// quick type buttons are gone: Filter narrows by leave type.
+export default function MyYearLeave({ rows, data, profileId, today, isAdmin = false, own = false, leading = null, controls = null }) {
   const [searchParams] = useSearchParams()
   const focusId = searchParams.get('request')
   const wide = useIsDesktop(1024)
-  const [filter, setFilter] = useState('all')
+  const isMd = useIsDesktop(768)
   const [showAll, setShowAll] = useState(Boolean(focusId))
   const [q, setQ] = useState('')
   const [facets, setFacets] = useState(EMPTY)
@@ -64,10 +58,8 @@ export default function MyYearLeave({ rows, data, profileId, today, isAdmin = fa
   const active = Boolean(q) || facets.month.size > 0 || facets.leaveType.size > 0 || facets.status.size > 0
   const clearAll = () => { setQ(''); setFacets(EMPTY) }
 
-  const counts = useMemo(() => leaveRecordCounts(rows), [rows])
   const approvedDays = useMemo(() => rows.filter(isCountedLeave).reduce((s, r) => s + Number(totalLeaveDays(r)), 0), [rows])
   const items = useMemo(() => rows
-    .filter(r => filter === 'all' || leaveBucket(r.leave_type) === filter)
     .filter(r => !facets.leaveType.size || facets.leaveType.has(r.leave_type))
     .filter(r => !facets.status.size || facets.status.has(r.status))
     .filter(r => !facets.month.size || [...monthsOf(r)].some(m => facets.month.has(m)))
@@ -94,18 +86,19 @@ export default function MyYearLeave({ rows, data, profileId, today, isAdmin = fa
         // rejected or cancelled leave, or a sick day already on this list.
         open: leaveDestination(r, { isAdmin, own, wide, profileId, inLeaveTab: true }),
       }
-    }), [rows, filter, facets, q, data, profileId, today, isAdmin, own, wide])
+    }), [rows, facets, q, data, profileId, today, isAdmin, own, wide])
 
-  const phoneItems = showAll ? items : items.slice(0, PHONE_LIMIT)
+  // A phone shows the first few, with Show all; a wider screen, all.
+  const phoneItems = showAll || isMd ? items : items.slice(0, PHONE_LIMIT)
 
   // The Staff list's spacing: 8px between the section bar and what it heads.
   return (
     <div className="space-y-2">
-      {/* Search and Filter above the section, as on the other lists; on a
-          phone they are the FAB's, and the leave type pills stay. */}
-      <div className="hidden md:block">
+      <div className="hidden items-center gap-2 md:flex">
+        {leading}
         <Toolbar
-          className=""
+          className="min-w-0 flex-1"
+          compact
           searchValue={q}
           onSearchChange={setQ}
           searchPlaceholder="Search type, month or status…"
@@ -113,72 +106,27 @@ export default function MyYearLeave({ rows, data, profileId, today, isAdmin = fa
           mobileMode="inline"
           active={active}
           onClearAll={clearAll}
+          trailing={controls && <div className="ml-auto flex flex-shrink-0 items-center gap-2">{controls}</div>}
         />
+      </div>
+      <div className="flex flex-nowrap items-center gap-2 md:hidden">
+        {leading}
+        {controls}
       </div>
       <FloatingActionMenu
         search={{ value: q, onChange: setQ, placeholder: 'Search type, month or status' }}
         filter={{ groups: filterGroups, active, onClearAll: clearAll, sheetTitle: 'Filters' }}
       />
-
-
-
-      {/* Four equal widths across the panel on a phone; the app's 30px
-          pill (no taller touch padding) everywhere. */}
-      <div className="grid grid-cols-4 gap-2 md:flex md:flex-wrap" role="group" aria-label="Filter by leave type">
-        {FILTERS.map(f => (
-          <button
-            key={f.key}
-            type="button"
-            aria-pressed={filter === f.key}
-            onClick={() => { setFilter(f.key); setShowAll(false) }}
-            className={`toolbar-pill px-2 md:px-3 ${filter === f.key ? 'toolbar-pill-active' : 'toolbar-pill-idle'}`}
-          >
-            {f.label} <span className="opacity-70">{counts[f.key]}</span>
-          </button>
-        ))}
-      </div>
       {/* What the old "Leave record" bar said: the tab is the section. */}
       <p className="text-xs text-ink-muted" data-testid="leave-record-summary">{plural(rows.length, 'request')} · {plural(approvedDays, 'day')} approved</p>
 
       {items.length === 0 ? (
-        <p className="card px-4 py-3 text-sm text-ink-muted">No leave requests{filter === 'all' && !active ? '' : ' match'} this year.</p>
+        <p className="card px-4 py-3 text-sm text-ink-muted">No leave requests{!active ? '' : ' match'} this year.</p>
       ) : (
         <>
-          {/* Desktop: a table. */}
-          <div className="card hidden overflow-x-auto md:block">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-slate-line text-xs font-medium text-ink-muted">
-                  <th scope="col" className="px-4 py-2.5 font-medium">Dates</th>
-                  <th scope="col" className="px-4 py-2.5 font-medium">Type</th>
-                  <th scope="col" className="px-4 py-2.5 text-right font-medium">Days</th>
-                  <th scope="col" className="px-4 py-2.5 font-medium">Status</th>
-                  <th scope="col" className="px-4 py-2.5 font-medium">Shift and cover</th>
-                  <th scope="col" className="px-4 py-2.5 font-medium">Open in</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-line">
-                {items.map(item => (
-                  <tr key={item.request.id} data-request-id={item.request.id} className={focusId === item.request.id ? 'bg-accent-tint' : ''}>
-                    <td className="whitespace-nowrap px-4 py-3 font-semibold text-ink">{item.dates}</td>
-                    <td className="px-4 py-3 text-ink"><span className="flex items-center gap-2"><LeaveCodeBox leaveType={item.request.leave_type} />{item.label}</span></td>
-                    <td className="px-4 py-3 text-right text-ink">{item.days}</td>
-                    <td className="px-4 py-3"><Tag variant="status" tone={STATUS_TONE[item.request.status] || 'neutral'}>{reviewStatusLabel(item.request.status)}</Tag></td>
-                    <td className="px-4 py-3 text-ink-light">{item.cover}</td>
-                    <td className="whitespace-nowrap px-4 py-3">
-                      <span className="flex items-center gap-3">
-                        {item.rosterTo && <Link to={item.rosterTo} className={`inline-flex items-center gap-0.5 ${linkClass}`}>Roster<ChevronRight className="h-4 w-4" aria-hidden="true" /></Link>}
-                        {item.open && <Link to={item.open.to} className={`inline-flex items-center gap-0.5 ${linkClass}`}>{item.open.label}<ChevronRight className="h-4 w-4" aria-hidden="true" /></Link>}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Phone: one stacked row per request. */}
-          <div className="md:hidden">
+          {/* One two-line row per request at every width: the column is the
+              Roster and Planners lists' width (the page sets it). */}
+          <div>
             <ul className="card divide-y divide-slate-line overflow-hidden">
               {phoneItems.map(item => (
                 <LeaveRequestRow
@@ -193,7 +141,7 @@ export default function MyYearLeave({ rows, data, profileId, today, isAdmin = fa
                 />
               ))}
             </ul>
-            {!showAll && items.length > PHONE_LIMIT && (
+            {!showAll && !isMd && items.length > PHONE_LIMIT && (
               <button type="button" onClick={() => setShowAll(true)} className="btn-secondary mt-3 min-h-[44px] w-full justify-center">
                 Show all {items.length}
               </button>

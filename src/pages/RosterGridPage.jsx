@@ -46,11 +46,12 @@ import PageActionsMenu from '../components/PageActionsMenu'
 import RosterLanesView, { LanesLegend } from '../components/RosterLanesView'
 import { ROSTER_TEXT_SIZES, rosterTextSize, rosterTextScale, readRosterTextSize, storeRosterTextSize } from '../lib/rosterTextSize'
 import { labelForLeaveCategory } from '../lib/leaveYearGrid'
-import { shiftColumns } from '../lib/shiftLabels'
+import { shiftColumns, labelForShiftCode } from '../lib/shiftLabels'
 import { useSwatch } from '../lib/useSwatch'
 import { useIsDesktop } from '../lib/useIsDesktop'
 import { adjustedTimesLabel } from '../lib/shiftTimes'
 import { leaveByDate, awaySummary } from '../lib/rosterLeaveColumn'
+import { LeaveTypePill } from '../components/LeaveTypeIcon'
 
 // Two ways to read the same month. Rows is the day-by-day grid the roster
 // has always been; Lanes turns it ninety degrees, a row per doctor. Both
@@ -1617,9 +1618,11 @@ export default function RosterGridPage() {
                           {showHeader && <div className={headerBand}>{label}</div>}
                           <div className="space-y-0.5 px-1.5 py-1 text-[0.834em]">
                             {away[key].map(p => (
-                              <div key={p.profileId} className="flex items-baseline gap-1 truncate text-ink-light">
+                              // The type as a filled pill (icon and code) first, so
+                              // a long surname truncates and the type never does.
+                              <div key={p.profileId} className="flex min-w-0 items-center gap-1 text-ink-light">
+                                {p.type && <LeaveTypePill leaveType={p.type} />}
                                 <span className="truncate">{p.name}</span>
-                                {p.code && <span className="flex-shrink-0 text-[0.85em] font-semibold text-ink-muted">{p.code}</span>}
                               </div>
                             ))}
                           </div>
@@ -1701,6 +1704,22 @@ export default function RosterGridPage() {
           onNewLocum={(entry, mode) => setNewLocumFor({ date: menu.date, shiftCode: menu.shiftCode, entry, mode })}
           lateArrival={menu.entry && lateOptionFor(menu.entry) ? { exists: lateByEntryId.has(menu.entry.id) } : null}
           onLateArrival={entry => setLateFor(lateOptionFor(entry))}
+          onMove={(entry, { date: targetDate, code, leave, cover = null }) => runEdit(() => rosterEdits.moveDoctor({
+            ...editArgs(entry), targetDate, targetShiftCode: code, targetShiftTypeId: shiftTypeIdFor(code), entries, leave, cover,
+          })).then(() => { if (cover?.kind === 'contact') refreshLocums() })}
+          onRemoveFromShift={(entry, mode) => runEdit(() => rosterEdits.removeFromShift({ ...editArgs(entry), mode }))}
+          occupants={(date, code) => entries
+            .filter(e => e.date === date && shiftTypes[e.shift_type_id] === code && (e.profile_id || (e.is_locum && locumDisplayName(e.locum_name))))
+            .map(e => (e.profile_id && !e.is_locum ? (displayNames?.get(e.profile_id) ?? profileMap[e.profile_id]?.surname ?? 'Doctor') : `[${locumDisplayName(e.locum_name) || displayNames?.get(e.profile_id) || 'Locum'}]`))
+            .join(', ')}
+          moveWarnings={(entry, date) => {
+            const notes = []
+            const other = findSameDayConflict({ entries, date, profileId: entry.profile_id, excludeEntryId: entry.id })
+            if (other) notes.push(`Already on ${labelForShiftCode(shiftTypes[other.shift_type_id] || '')} that day: the move will be refused.`)
+            if (workedNightShiftPreviousDay({ entries: entries.filter(e => e.id !== entry.id), shiftTypes, date, profileId: entry.profile_id })) notes.push('Worked a night shift the day before (rest after a night).')
+            if (isOnApprovedLeave({ leaveByProfile, profileId: entry.profile_id, date })) notes.push('On approved leave that day.')
+            return notes
+          }}
           onClose={() => setMenu(null)}
         />
       )}

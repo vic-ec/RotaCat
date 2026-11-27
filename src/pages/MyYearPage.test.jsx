@@ -198,15 +198,16 @@ describe('MyYearPage', () => {
     expect(screen.queryByRole('button', { name: /leave$/ })).not.toBeInTheDocument()
   })
 
-  it('filters the leave record by type', async () => {
+  it('the Leave tab: no quick type buttons; search narrows the rows', async () => {
     renderAt('/my-year?tab=leave')
     await screen.findByTestId('leave-record-summary')
-    const group = screen.getByRole('group', { name: 'Filter by leave type' })
-    expect(within(group).getAllByRole('button').map(b => b.textContent)).toEqual(['All 3', 'Annual 1', 'Sick 1', 'Other 1'])
-    await userEvent.click(within(group).getByRole('button', { name: /Sick/ }))
-    const table = screen.getByRole('table')
-    expect(within(table).getAllByRole('row')).toHaveLength(2)
-    expect(table.textContent).toMatch(/18–19 Nov 2026.*Sick leave.*2.*Approved.*Off roster/s)
+    expect(screen.queryByRole('group', { name: 'Filter by leave type' })).not.toBeInTheDocument()
+    expect(document.querySelectorAll('[data-request-id]')).toHaveLength(3)
+    const search = screen.getAllByPlaceholderText('Search type, month or status…')[0]
+    await userEvent.type(search, 'sick')
+    const rows = document.querySelectorAll('[data-request-id]')
+    expect(rows).toHaveLength(1)
+    expect(rows[0].textContent).toMatch(/Sick leave.*Approved.*18–19 Nov 2026 · 2 days · Off roster/s)
   })
 
   it('has one Go to… menu with the five destinations', async () => {
@@ -236,15 +237,18 @@ describe('MyYearPage', () => {
     renderAt(`/my-year/${ADA}`)
     expect(await screen.findByRole('heading', { level: 1, name: 'Ada’s year' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'All Leave' })).toHaveAttribute('href', '/leave?tab=team&sub=all')
-    // No filled button on an admin's Overview…
+    // Capture leave first under the tabs on their Overview, then the year
+    // and Go to straight after it.
     expect(screen.queryByRole('button', { name: 'Request leave' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Capture leave' })).not.toBeInTheDocument()
-    // …Capture leave on the Leave tab.
-    await userEvent.click(screen.getByRole('button', { name: 'Leave' }))
-    expect(screen.getByRole('button', { name: 'Capture leave' })).toBeInTheDocument()
-
-    await userEvent.click(screen.getByRole('button', { name: /Go to/ }))
+    const controls = screen.getByTestId('my-year-controls')
+    const buttons = within(controls).getAllByRole('button')
+    expect(buttons[0]).toHaveAccessibleName('Capture leave')
+    expect(within(controls).getByRole('button', { name: /Go to/ })).toBeInTheDocument()
+    await userEvent.click(within(controls).getByRole('button', { name: /Go to/ }))
     expect(screen.getByRole('menuitem', { name: 'Account' })).toHaveAttribute('href', `/account/${ADA}`)
+    // …and on the Leave tab.
+    await userEvent.click(screen.getByRole('button', { name: 'Leave' }))
+    expect(screen.getAllByRole('button', { name: 'Capture leave' }).length).toBeGreaterThan(0)
   })
 
   it('hides Attendance from staff when the setting is off, and never from admins', async () => {
@@ -262,11 +266,11 @@ describe('MyYearPage', () => {
   it('shows a doctor their own late arrivals, with the reason and never who logged it', async () => {
     late.fetchMyLateArrivals.mockResolvedValue([OWN_LATE])
     renderAt('/my-year?tab=attendance')
-    const table = await screen.findByTestId('late-arrivals-table')
-    expect(within(table).getAllByRole('columnheader').map(h => h.textContent)).toEqual(['Date', 'Shift', 'Shift start', 'Arrived', 'Late by', 'Reason given'])
-    expect(table.textContent).toMatch(/Mon, 2 Nov 2026.*08h00.*08h25.*25 min.*Car trouble/s)
+    const list = await screen.findByTestId('late-arrivals-list')
+    expect(list.textContent).toMatch(/Mon, 2 Nov 2026.*25 min late.*start 08h00 · arrived 08h25.*Car trouble/s)
     expect(screen.getByText('Shift start, arrival time and your reason, as recorded. Speak to an admin if a record looks wrong.')).toBeInTheDocument()
-    expect(screen.getByText('Late arrivals').parentElement.textContent).toMatch(/1 this year/)
+    // No "Late arrivals" bar: the tab says what this is.
+    expect(screen.queryByText('Late arrivals')).not.toBeInTheDocument()
     // The own view reads through the function, never the table, and has nothing to edit or log.
     expect(late.fetchMyLateArrivals).toHaveBeenCalledWith(2026)
     expect(late.fetchLateArrivalsForProfile).not.toHaveBeenCalled()
@@ -296,10 +300,9 @@ describe('MyYearPage', () => {
     mockAuth = { profile: doctor(ME, 'Maurice'), isAdmin: true, canSubmitLeave: true }
     late.fetchLateArrivalsForProfile.mockResolvedValue([ADMIN_LATE])
     renderAt(`/my-year/${ADA}?tab=attendance`)
-    const table = await screen.findByTestId('late-arrivals-table')
-    expect(within(table).getAllByRole('columnheader').map(h => h.textContent)).toEqual(['Date', 'Shift', 'Shift start', 'Arrived', 'Late by', 'Reason given', 'Logged by', 'Open in'])
-    expect(table.textContent).toMatch(/Pat Admin/)
-    expect(within(table).getByRole('link', { name: 'Roster' })).toHaveAttribute('href', '/roster/m11?date=2026-11-02&entry=e1&mark=1')
+    const table = await screen.findByTestId('late-arrivals-list')
+    expect(table.textContent).toMatch(/Logged by Pat Admin/)
+    expect(within(table).getByRole('link', { name: /Roster/ })).toHaveAttribute('href', '/roster/m11?date=2026-11-02&entry=e1&mark=1')
     expect(late.fetchLateArrivalsForProfile).toHaveBeenCalledWith(ADA, 2026)
     expect(screen.queryByText(/Speak to an admin/)).not.toBeInTheDocument()
 

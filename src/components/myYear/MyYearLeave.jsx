@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
-import { ChevronRight } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
 import LeaveRequestRow from '../LeaveRequestRow'
 import { useIsDesktop } from '../../lib/useIsDesktop'
 import Toolbar from '../Toolbar'
@@ -14,10 +13,7 @@ import { reviewStatusLabel } from '../../lib/statusLabels'
 import { leaveBucket, leaveRecordCounts, coverForRequest, coverSummary, isCountedLeave } from '../../lib/myYear'
 import { rosterLinkForDate } from '../../lib/myYearData'
 import { leaveDestination } from '../../lib/myYearLinks'
-import Tag from '../Tag'
-import LeaveCodeBox from './LeaveCodeBox'
 
-const STATUS_TONE = { pending: 'warning', approved: 'success', rejected: 'danger', cancelled: 'neutral' }
 const FILTERS = [
   { key: 'all', label: 'All' },
   { key: 'annual', label: 'Annual' },
@@ -37,7 +33,6 @@ function monthsOf(r) {
   return out
 }
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
-const linkClass = 'font-medium text-accent hover:text-accent-dark'
 
 // `?request=<id>` (a link to one request, e.g. a sick day from the
 // Overview): the list shows in full, scrolls to that request and rings it.
@@ -45,6 +40,7 @@ export default function MyYearLeave({ rows, data, profileId, today, isAdmin = fa
   const [searchParams] = useSearchParams()
   const focusId = searchParams.get('request')
   const wide = useIsDesktop(1024)
+  const isMd = useIsDesktop(768)
   const [filter, setFilter] = useState('all')
   const [showAll, setShowAll] = useState(Boolean(focusId))
   const [q, setQ] = useState('')
@@ -96,7 +92,8 @@ export default function MyYearLeave({ rows, data, profileId, today, isAdmin = fa
       }
     }), [rows, filter, facets, q, data, profileId, today, isAdmin, own, wide])
 
-  const phoneItems = showAll ? items : items.slice(0, PHONE_LIMIT)
+  // A phone shows the first few, with Show all; a wider screen, all.
+  const phoneItems = showAll || isMd ? items : items.slice(0, PHONE_LIMIT)
 
   // The Staff list's spacing: 8px between the section bar and what it heads.
   return (
@@ -144,41 +141,9 @@ export default function MyYearLeave({ rows, data, profileId, today, isAdmin = fa
         <p className="card px-4 py-3 text-sm text-ink-muted">No leave requests{filter === 'all' && !active ? '' : ' match'} this year.</p>
       ) : (
         <>
-          {/* Desktop: a table. */}
-          <div className="card hidden overflow-x-auto md:block">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-slate-line text-xs font-medium text-ink-muted">
-                  <th scope="col" className="px-4 py-2.5 font-medium">Dates</th>
-                  <th scope="col" className="px-4 py-2.5 font-medium">Type</th>
-                  <th scope="col" className="px-4 py-2.5 text-right font-medium">Days</th>
-                  <th scope="col" className="px-4 py-2.5 font-medium">Status</th>
-                  <th scope="col" className="px-4 py-2.5 font-medium">Shift and cover</th>
-                  <th scope="col" className="px-4 py-2.5 font-medium">Open in</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-line">
-                {items.map(item => (
-                  <tr key={item.request.id} data-request-id={item.request.id} className={focusId === item.request.id ? 'bg-accent-tint' : ''}>
-                    <td className="whitespace-nowrap px-4 py-3 font-semibold text-ink">{item.dates}</td>
-                    <td className="px-4 py-3 text-ink"><span className="flex items-center gap-2"><LeaveCodeBox leaveType={item.request.leave_type} />{item.label}</span></td>
-                    <td className="px-4 py-3 text-right text-ink">{item.days}</td>
-                    <td className="px-4 py-3"><Tag variant="status" tone={STATUS_TONE[item.request.status] || 'neutral'}>{reviewStatusLabel(item.request.status)}</Tag></td>
-                    <td className="px-4 py-3 text-ink-light">{item.cover}</td>
-                    <td className="whitespace-nowrap px-4 py-3">
-                      <span className="flex items-center gap-3">
-                        {item.rosterTo && <Link to={item.rosterTo} className={`inline-flex items-center gap-0.5 ${linkClass}`}>Roster<ChevronRight className="h-4 w-4" aria-hidden="true" /></Link>}
-                        {item.open && <Link to={item.open.to} className={`inline-flex items-center gap-0.5 ${linkClass}`}>{item.open.label}<ChevronRight className="h-4 w-4" aria-hidden="true" /></Link>}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Phone: one stacked row per request. */}
-          <div className="md:hidden">
+          {/* One two-line row per request at every width: the column is the
+              Roster and Planners lists' width (the page sets it). */}
+          <div>
             <ul className="card divide-y divide-slate-line overflow-hidden">
               {phoneItems.map(item => (
                 <LeaveRequestRow
@@ -193,7 +158,7 @@ export default function MyYearLeave({ rows, data, profileId, today, isAdmin = fa
                 />
               ))}
             </ul>
-            {!showAll && items.length > PHONE_LIMIT && (
+            {!showAll && !isMd && items.length > PHONE_LIMIT && (
               <button type="button" onClick={() => setShowAll(true)} className="btn-secondary mt-3 min-h-[44px] w-full justify-center">
                 Show all {items.length}
               </button>

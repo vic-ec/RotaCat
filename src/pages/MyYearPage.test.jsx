@@ -204,9 +204,10 @@ describe('MyYearPage', () => {
     const group = screen.getByRole('group', { name: 'Filter by leave type' })
     expect(within(group).getAllByRole('button').map(b => b.textContent)).toEqual(['All 3', 'Annual 1', 'Sick 1', 'Other 1'])
     await userEvent.click(within(group).getByRole('button', { name: /Sick/ }))
-    const table = screen.getByRole('table')
-    expect(within(table).getAllByRole('row')).toHaveLength(2)
-    expect(table.textContent).toMatch(/18–19 Nov 2026.*Sick leave.*2.*Approved.*Off roster/s)
+    // One two-line row per request at every width (no table).
+    const rows = document.querySelectorAll('[data-request-id]')
+    expect(rows).toHaveLength(1)
+    expect(rows[0].textContent).toMatch(/Sick leave.*Approved.*18–19 Nov 2026 · 2 days · Off roster/s)
   })
 
   it('has one Go to… menu with the five destinations', async () => {
@@ -262,11 +263,11 @@ describe('MyYearPage', () => {
   it('shows a doctor their own late arrivals, with the reason and never who logged it', async () => {
     late.fetchMyLateArrivals.mockResolvedValue([OWN_LATE])
     renderAt('/my-year?tab=attendance')
-    const table = await screen.findByTestId('late-arrivals-table')
-    expect(within(table).getAllByRole('columnheader').map(h => h.textContent)).toEqual(['Date', 'Shift', 'Shift start', 'Arrived', 'Late by', 'Reason given'])
-    expect(table.textContent).toMatch(/Mon, 2 Nov 2026.*08h00.*08h25.*25 min.*Car trouble/s)
+    const list = await screen.findByTestId('late-arrivals-list')
+    expect(list.textContent).toMatch(/Mon, 2 Nov 2026.*25 min late.*start 08h00 · arrived 08h25.*Car trouble/s)
     expect(screen.getByText('Shift start, arrival time and your reason, as recorded. Speak to an admin if a record looks wrong.')).toBeInTheDocument()
-    expect(screen.getByText('Late arrivals').parentElement.textContent).toMatch(/1 this year/)
+    // No "Late arrivals" bar: the tab says what this is.
+    expect(screen.queryByText('Late arrivals')).not.toBeInTheDocument()
     // The own view reads through the function, never the table, and has nothing to edit or log.
     expect(late.fetchMyLateArrivals).toHaveBeenCalledWith(2026)
     expect(late.fetchLateArrivalsForProfile).not.toHaveBeenCalled()
@@ -296,10 +297,9 @@ describe('MyYearPage', () => {
     mockAuth = { profile: doctor(ME, 'Maurice'), isAdmin: true, canSubmitLeave: true }
     late.fetchLateArrivalsForProfile.mockResolvedValue([ADMIN_LATE])
     renderAt(`/my-year/${ADA}?tab=attendance`)
-    const table = await screen.findByTestId('late-arrivals-table')
-    expect(within(table).getAllByRole('columnheader').map(h => h.textContent)).toEqual(['Date', 'Shift', 'Shift start', 'Arrived', 'Late by', 'Reason given', 'Logged by', 'Open in'])
-    expect(table.textContent).toMatch(/Pat Admin/)
-    expect(within(table).getByRole('link', { name: 'Roster' })).toHaveAttribute('href', '/roster/m11?date=2026-11-02&entry=e1&mark=1')
+    const table = await screen.findByTestId('late-arrivals-list')
+    expect(table.textContent).toMatch(/Logged by Pat Admin/)
+    expect(within(table).getByRole('link', { name: /Roster/ })).toHaveAttribute('href', '/roster/m11?date=2026-11-02&entry=e1&mark=1')
     expect(late.fetchLateArrivalsForProfile).toHaveBeenCalledWith(ADA, 2026)
     expect(screen.queryByText(/Speak to an admin/)).not.toBeInTheDocument()
 

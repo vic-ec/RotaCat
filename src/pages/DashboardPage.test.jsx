@@ -160,10 +160,31 @@ describe('DashboardPage', () => {
 
     renderDashboard()
 
-    expect(await screen.findByText('Day shift · 08h')).toBeInTheDocument()
+    expect(await screen.findByText('Day shift')).toBeInTheDocument()
     expect(screen.getByText('with Landes')).toBeInTheDocument()
     expect(screen.getByText('08–18')).toHaveClass('chip-mint')
     expect(screen.getByText('22–08')).toHaveClass('chip-night')
+  })
+
+  it('doctor: a shift row opens the roster on its day; locums are in brackets; the time has no hour suffix', async () => {
+    mockAuth = { profile: { id: 'doctor-1', name: 'Jane' }, isAdmin: false }
+    const today = todayStr()
+    mockResponses['roster_entries:select'] = {
+      data: [
+        { date: today, roster_month_id: 'rm-1', profile_id: 'doctor-1', shift_type: { code: 'WD_12', label: 'Weekday 12:00–22:00', start_time: '12:00:00', end_time: '22:00:00', day_type: 'weekday', is_night_shift: false } },
+        { date: today, profile_id: 'loc-1', is_locum: false, shift_type: { code: 'WD_12' }, profile: { surname: 'Martin', role: 'locum' } },
+        { date: today, profile_id: null, is_locum: true, locum_name: '[Alli]', shift_type: { code: 'WD_12' } },
+        { date: today, profile_id: null, is_locum: true, locum_name: '[ ]', shift_type: { code: 'WD_12' } },
+        { date: today, profile_id: 'doctor-2', shift_type: { code: 'WD_12' }, profile: { surname: 'Tout', role: 'doctor' } },
+      ],
+      error: null,
+    }
+    renderDashboard()
+    expect(await screen.findByText('Weekday 12:00–22:00')).toBeInTheDocument()
+    // (The mock answers every roster query with these rows, so several rows repeat it.)
+    expect(screen.getAllByText('with [Martin], [Alli], Tout').length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('link', { name: /Weekday 12:00–22:00, .*Open on the roster/ })[0])
+      .toHaveAttribute('href', `/roster/rm-1?date=${today}&doctor=doctor-1`)
   })
 
   it('doctor: shows only the next leave, with a link to the rest', async () => {
@@ -182,6 +203,9 @@ describe('DashboardPage', () => {
     expect(await screen.findByText('Mon 10 Aug')).toBeInTheDocument()
     expect(screen.queryByText('Mon 7 Sep')).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: /\+1 more upcoming/ })).toHaveAttribute('href', '/leave?tab=my-leave')
+    // The next leave opens its planner on its first day's month.
+    expect(screen.getByTestId('next-leave-link')).toHaveAttribute('href', '/leave?tab=planners&sub=annual&month=2026-08&highlight=lr1')
+    expect(screen.getByText('My leave')).toBeInTheDocument()
     // Pending counts the request, booked counts only approved days
     expect(screen.getByText('3 of 22 booked · 1 pending')).toBeInTheDocument()
   })
@@ -337,7 +361,7 @@ describe('DashboardPage', () => {
 
     renderDashboard()
 
-    expect(await screen.findByText('Day shift · 08h')).toBeInTheDocument()
+    expect(await screen.findByText('Day shift')).toBeInTheDocument()
     expect(screen.getByText('08–18')).toBeInTheDocument()
     expect(screen.queryByText('Annual leave balance')).not.toBeInTheDocument()
     expect(screen.queryByText('Request leave')).not.toBeInTheDocument()

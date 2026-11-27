@@ -13,6 +13,7 @@ import { fetchAdminAttention } from '../lib/adminAttention'
 import { todayStr, addDays, formatShortDateRange, parseLocalDate } from '../lib/dateRange'
 import { splitByShiftStatus } from '../lib/shiftStatus'
 import { upcomingRequests, annualDaysUsedInYear, pendingRequestCount } from '../lib/leaveDashboard'
+import { leaveDestination } from '../lib/myYearLinks'
 import { shortLeaveTypeLabel, ANNUAL_LEAVE_ALLOWANCE } from '../lib/leaveRequests'
 import UpcomingBirthdays from '../components/UpcomingBirthdays'
 import DateCard, { LeaveDateRange } from '../components/DateCard'
@@ -85,7 +86,9 @@ function timeChipClass(shiftType) {
 
 // One row of the upcoming-shifts card: a 64px date cell (today's on the
 // sheen), the shift and who else is on it, and the time chip.
-function UpcomingShiftRow({ entry, coworkers, holidayName }) {
+// The whole row (date, shift, time) opens the roster on that day, with the
+// doctor's own shift lit, when there's a roster to open.
+function UpcomingShiftRow({ entry, coworkers, holidayName, doctorId }) {
   const date = parseLocalDate(entry.date)
   const isToday = entry.date === todayStr()
   const st = entry.shift_type
@@ -93,8 +96,14 @@ function UpcomingShiftRow({ entry, coworkers, holidayName }) {
     holidayName,
     coworkers.length > 0 ? `with ${coworkers.join(', ')}` : null,
   ].filter(Boolean).join(' · ')
+  const rosterTo = entry.roster_month_id ? `/roster/${entry.roster_month_id}?date=${entry.date}&doctor=${doctorId}` : null
+  const Row = rosterTo ? Link : 'div'
   return (
-    <li className="flex items-stretch">
+    <li>
+    <Row
+      {...(rosterTo ? { to: rosterTo, 'aria-label': `${st?.label || 'Shift'}, ${entry.date}. Open on the roster` } : {})}
+      className={`flex items-stretch ${rosterTo ? 'transition-colors hover:bg-canvas-cool active:bg-canvas-sunken' : ''}`}
+    >
       <div
         className={`flex w-16 flex-shrink-0 flex-col items-center justify-center border-r py-2 text-center ${
           isToday ? 'sheen border-sheen' : 'border-slate-line'
@@ -112,7 +121,7 @@ function UpcomingShiftRow({ entry, coworkers, holidayName }) {
       <div className="flex min-w-0 flex-1 items-center justify-between gap-3 px-3 py-2">
         <div className="min-w-0">
           <p className="truncate text-base font-semibold text-ink">
-            {st?.label || 'Shift'} · {hourOnly(st?.start_time)}h
+            {st?.label || 'Shift'}
           </p>
           {line2 && <p className="truncate text-[13px] text-ink-light">{line2}</p>}
         </div>
@@ -122,6 +131,7 @@ function UpcomingShiftRow({ entry, coworkers, holidayName }) {
           </span>
         )}
       </div>
+    </Row>
     </li>
   )
 }
@@ -174,6 +184,8 @@ export default function DashboardPage() {
   const [onShiftNow, setOnShiftNow] = useState([])
   const [startingSoon, setStartingSoon] = useState([])
   const [loading, setLoading] = useState(true)
+  // This month's roster, for "View roster" (opens on today, as an admin's).
+  const [currentRosterId, setCurrentRosterId] = useState(null)
 
   useEffect(() => {
     if (!profile?.id) return
@@ -208,7 +220,7 @@ export default function DashboardPage() {
   async function loadOwnUpcomingShifts() {
     const { data } = await supabase
       .from('roster_entries')
-      .select('date, profile_id, start_time_override, end_time_override, shift_type:shift_types(code, label, start_time, end_time, day_type, is_night_shift)')
+      .select('date, roster_month_id, profile_id, start_time_override, end_time_override, shift_type:shift_types(code, label, start_time, end_time, day_type, is_night_shift)')
       .eq('profile_id', profile.id)
       .gte('date', todayStr())
       .lte('date', addDays(todayStr(), 6))
@@ -220,17 +232,27 @@ export default function DashboardPage() {
   // date + shift code, so a row can say who else is on that slot. Same RLS
   // as above: only published entries ever come back.
   async function loadCoworkersThisWeek() {
+    // Locums in square brackets, as the paper roster writes them: one with
+    // an account (role locum) or a named locum slot ("[Martin]"). An open
+    // slot ("[ ]") is nobody to work with.
     const { data } = await supabase
       .from('roster_entries')
-      .select('date, profile_id, shift_type:shift_types(code), profile:profiles!roster_entries_profile_id_fkey(surname)')
+      .select('date, profile_id, is_locum, locum_name, shift_type:shift_types(code), profile:profiles!roster_entries_profile_id_fkey(surname, role)')
       .gte('date', todayStr())
       .lte('date', addDays(todayStr(), 6))
-      .not('profile_id', 'is', null)
     const map = {}
     for (const row of data || []) {
-      if (!row.profile_id || row.profile_id === profile.id || !row.profile?.surname) continue
+      if (row.profile_id === profile.id) continue
+      let name = null
+      if (row.profile_id && row.profile?.surname) {
+        name = row.is_locum || row.profile.role === 'locum' ? `[${row.profile.surname}]` : row.profile.surname
+      } else if (row.is_locum) {
+        const raw = String(row.locum_name || '').replace(/^\[|\]$/g, '').trim()
+        if (raw) name = `[${raw}]`
+      }
+      if (!name) continue
       const key = `${row.date}|${row.shift_type?.code}`
-      ;(map[key] ||= []).push(row.profile.surname)
+      ;(map[key] ||= []).push(name)
     }
     return map
   }
@@ -309,7 +331,8 @@ export default function DashboardPage() {
   async function loadDoctorWidgets({ silent = false } = {}) {
     if (!silent) setLoading(true)
     const today = todayStr()
-    const [leaveRes, shifts, coworkers, ph, swaps, annualUsed] = await Promise.all([
+    const now = new Date()
+    const [leaveRes, shifts, coworkers, ph, swaps, annualUsed, rosterRes] = await Promise.all([
       supabase
         .from('leave_requests')
         .select('*')
@@ -323,7 +346,13 @@ export default function DashboardPage() {
       loadPublicHolidaysThisWeek(),
       loadIncomingSwaps(),
       loadAnnualBalance(),
+      (async () => {
+        try {
+          return await supabase.from('roster_months').select('id').eq('year', now.getFullYear()).eq('month', now.getMonth() + 1).is('deleted_at', null).maybeSingle()
+        } catch { return { data: null } }
+      })(),
     ])
+    setCurrentRosterId(rosterRes?.data?.id || null)
     setMyLeave(upcomingRequests(leaveRes.data || [], today))
     setMyShifts(shifts)
     setCoworkersByKey(coworkers)
@@ -494,7 +523,7 @@ export default function DashboardPage() {
                 is itself worth stating under a heading, and the link out is
                 exactly what someone with no shifts wants. The empty message
                 sits inside the panel, in place of the chips. */}
-            <SectionHeading to="/roster" linkLabel="View roster">Upcoming shifts</SectionHeading>
+            <SectionHeading to={currentRosterId ? `/roster/${currentRosterId}?date=${todayStr()}` : '/roster'} linkLabel="View roster">Upcoming shifts</SectionHeading>
             {myShifts.length === 0 ? (
               <p className="card p-4 text-sm text-ink-muted">No shifts in the next 7 days</p>
             ) : (
@@ -507,6 +536,7 @@ export default function DashboardPage() {
                       entry={e}
                       coworkers={coworkersByKey[`${e.date}|${e.shift_type?.code}`] || []}
                       holidayName={isPH ? (phByDate[e.date] || 'Public holiday') : null}
+                      doctorId={profile.id}
                     />
                   )
                 })}
@@ -519,7 +549,7 @@ export default function DashboardPage() {
               right. My leave has the full list; this is the summary. */}
           {!isLocum && (
             <section>
-              <SectionHeading to={MY_LEAVE_PATH} linkLabel="View all leave">Leave</SectionHeading>
+              <SectionHeading to={MY_LEAVE_PATH} linkLabel="View all leave">My leave</SectionHeading>
               <div className="card grid divide-y divide-slate-line overflow-hidden sm:grid-cols-2 sm:divide-x sm:divide-y-0">
                 <div className="p-4">
                   <p className="text-xs font-medium text-ink-muted">Annual leave · {new Date().getFullYear()}</p>
@@ -550,7 +580,16 @@ export default function DashboardPage() {
                     <p className="text-sm text-ink-muted">None booked</p>
                   ) : (
                     <>
-                      <LeaveCard request={myLeave[0]} bare />
+                      {/* Opens where the request is: its planner on its first
+                          day's month, or My Requests for a pending one. */}
+                      {(() => {
+                        const dest = leaveDestination(myLeave[0], { isAdmin, own: true, profileId: profile.id })
+                        return dest ? (
+                          <Link to={dest.to} aria-label={`${myLeave[0].leave_type} leave, open in ${dest.label}`} className="-m-2 block rounded-lg p-2 transition-colors hover:bg-canvas-cool active:bg-canvas-sunken" data-testid="next-leave-link">
+                            <LeaveCard request={myLeave[0]} bare />
+                          </Link>
+                        ) : <LeaveCard request={myLeave[0]} bare />
+                      })()}
                       {myLeave.length > 1 && (
                         <Link to={MY_LEAVE_PATH} className="mt-2 inline-block text-xs font-medium text-accent hover:text-accent-dark">
                           +{myLeave.length - 1} more upcoming ›

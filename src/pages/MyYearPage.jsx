@@ -257,7 +257,8 @@ function MyYear({ profileId, own }) {
             onSelectDate={setSelectedDate}
           />
         )}
-        {tab === 'leave' && <MyYearLeave rows={view.record} data={data} profileId={profileId} today={today} isAdmin={isAdmin} own={own} />}
+        {/* Leave and Attendance: the Roster and Planners lists' width. */}
+        {tab === 'leave' && <div className="mx-auto md:max-w-2xl"><MyYearLeave rows={view.record} data={data} profileId={profileId} today={today} isAdmin={isAdmin} own={own} /></div>}
         {tab === 'shifts' && (
           <MyYearShifts
             year={year}
@@ -270,6 +271,7 @@ function MyYear({ profileId, own }) {
           />
         )}
         {tab === 'attendance' && (
+          <div className="mx-auto md:max-w-2xl">
           <MyYearAttendance
             records={lateRecords}
             admin={isAdmin}
@@ -277,6 +279,7 @@ function MyYear({ profileId, own }) {
             profileId={profileId}
             onEdit={record => setLateForm({ record })}
           />
+          </div>
         )}
       </div>
 

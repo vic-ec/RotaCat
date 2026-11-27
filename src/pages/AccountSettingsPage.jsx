@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import Cropper from 'react-easy-crop'
-import { CircleCheck, ExternalLink, CalendarClock, CalendarRange, ChevronRight, Contrast, KeyRound } from 'lucide-react'
+import { CircleCheck, ExternalLink, CalendarClock, Grid2x2Check, ChevronRight, Contrast, KeyRound } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
@@ -1791,7 +1791,7 @@ export default function AccountSettingsPage() {
               to={isOwnAccount ? '/my-year' : `/my-year/${profile.id}`}
               className="card flex items-center gap-3 px-5 py-3 transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken"
             >
-              <span className="flex-shrink-0 text-ink-light" aria-hidden="true"><CalendarRange className="h-5 w-5" /></span>
+              <span className="flex-shrink-0 text-ink-light" aria-hidden="true"><Grid2x2Check className="h-5 w-5" /></span>
               <span className="min-w-0 flex-1 text-sm font-medium text-ink">Leave, shifts &amp; attendance record</span>
               <span className="flex-shrink-0 rounded p-1 text-ink-muted" aria-hidden="true"><ChevronRight className="h-4 w-4" /></span>
             </Link>

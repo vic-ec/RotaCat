@@ -134,7 +134,9 @@ export function leaveTrackersForYear(requests, year, typeOrder = []) {
 // soonest first, capped to `limit` for a compact dashboard list.
 export function upcomingRequests(requests, todayStr, limit = 5) {
   return requests
-    .filter(r => r.date_to >= todayStr && r.status !== 'cancelled')
+    // Approved and pending only: rejected or cancelled leave is no one's
+    // upcoming leave (it stays on My year and My Requests).
+    .filter(r => r.date_to >= todayStr && r.status !== 'cancelled' && r.status !== 'rejected')
     .sort((a, b) => a.date_from.localeCompare(b.date_from))
     .slice(0, limit)
 }

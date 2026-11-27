@@ -1,5 +1,8 @@
-import { Fragment, useEffect, useState } from 'react'
-import { Link2, Pencil, UserPlus } from 'lucide-react'
+import { Fragment, useEffect, useRef, useState } from 'react'
+import { Link2, MoreHorizontal, Pencil, UserPlus } from 'lucide-react'
+import { QuickActionRow } from './ContactQuickMenu'
+import { computeAnchoredPosition } from '../lib/popoverPosition'
+import { useDismissablePopover } from '../lib/useDismissablePopover'
 import WhatsAppIcon from './icons/WhatsAppIcon'
 import ProfileAvatar from './ProfileAvatar'
 import RowActionIcon from './RowActionIcon'
@@ -101,6 +104,20 @@ export default function LocumContactsPanel({ onLinked, onCount }) {
     }
   }
 
+  // Phone: one quick-action menu per row (as on the Staff list) in place
+  // of four icons. { id, anchor (DOMRect) } or null.
+  const [menuFor, setMenuFor] = useState(null)
+  const menuRef = useRef(null)
+  const menuTriggerRef = useRef(null)
+  const closeMenu = () => { setMenuFor(null); menuTriggerRef.current = null }
+  useDismissablePopover(Boolean(menuFor), closeMenu, menuRef, menuTriggerRef)
+  function toggleMenu(row, el) {
+    if (menuFor?.id === row.id) { closeMenu(); return }
+    menuTriggerRef.current = el
+    setMenuFor({ id: row.id, anchor: el.getBoundingClientRect() })
+  }
+  const toggleLinking = (row, match) => { setPhoneEdit(null); setLinkingFor(linkingFor === row.id ? null : row.id); setLinkTarget(match?.id ?? null) }
+
   function openPhoneEdit(row) {
     setLinkingFor(null)
     setPhoneEdit(current => (current?.id === row.id ? null : { id: row.id, digits: (row.phone || '').replace(/\D/g, '').slice(0, 10), saving: false, error: '' }))
@@ -156,9 +173,23 @@ export default function LocumContactsPanel({ onLinked, onCount }) {
         icon={<Link2 className="h-4 w-4" />}
         title="Link to account"
         label={`Link ${row.name} to an existing account`}
-        onClick={() => { setPhoneEdit(null); setLinkingFor(linkingFor === row.id ? null : row.id); setLinkTarget(match?.id ?? null) }}
+        onClick={() => toggleLinking(row, match)}
       />
     </div>
+  )
+
+  // Phone: the same four, in a menu off a ⋯ button.
+  const menuButton = row => (
+    <button
+      type="button"
+      onClick={e => { e.stopPropagation(); toggleMenu(row, e.currentTarget) }}
+      aria-label={`Actions for ${row.name} ${row.surname}`}
+      aria-haspopup="menu"
+      aria-expanded={menuFor?.id === row.id}
+      className="relative flex-shrink-0 rounded p-1.5 text-ink-muted transition-colors after:absolute after:-inset-2 after:content-[''] hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink"
+    >
+      <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
+    </button>
   )
 
   // The follow-ups under a row: the same-mobile suggestion, or the picker.
@@ -234,10 +265,9 @@ export default function LocumContactsPanel({ onLinked, onCount }) {
       {error && <p className="px-4 pt-3 text-xs text-flagRed" role="alert">{error}</p>}
 
       {/* Phone: the Staff list's card rows — avatar, name, the mobile and
-          shift count on one line, the actions as icons (the pencil there,
-          so the line never has to wrap around one of its own). */}
+          shift count on one line, the four actions in one ⋯ menu. */}
       <ul className="divide-y divide-slate-line md:hidden">
-        {prepared.map(({ row, count, fullName, match, inviteHref }) => (
+        {prepared.map(({ row, count, fullName, match }) => (
           <li key={row.id} className="px-4 py-1">
             <div className="flex cursor-pointer items-center gap-3 py-1" onClick={() => openShifts(row)} data-testid="locum-contact-row">
               <ProfileAvatar profile={row} size={40} className="flex-shrink-0" />
@@ -247,12 +277,42 @@ export default function LocumContactsPanel({ onLinked, onCount }) {
                   {formatPhoneDisplay(row.phone)}{savedPhoneFor === row.id && <span className="ml-1 font-semibold text-accent-dark">Saved</span>} · {count} shift{count === 1 ? '' : 's'}
                 </span>
               </div>
-              {actionIcons(row, count, match, inviteHref)}
+              {menuButton(row)}
             </div>
             {(match || linkingFor === row.id || phoneEdit?.id === row.id) && <div className="pb-2 pl-[52px]">{followUp(row, count, match)}</div>}
           </li>
         ))}
       </ul>
+      {menuFor && (() => {
+        const item = prepared.find(p => p.row.id === menuFor.id)
+        if (!item) return null
+        const { row, match, inviteHref } = item
+        const width = 232
+        const pick = fn => () => { closeMenu(); fn() }
+        return (
+          <div
+            ref={menuRef}
+            role="menu"
+            aria-label={`Actions for ${row.name} ${row.surname}`}
+            data-testid="locum-actions-menu"
+            style={{ ...computeAnchoredPosition(menuFor.anchor, width), width }}
+            className="fixed z-50 overflow-hidden rounded-xl border border-edge bg-canvas-raised py-1 shadow-raised md:hidden"
+          >
+            <QuickActionRow icon={<Pencil className="h-5 w-5" />} label="Edit mobile" onClick={pick(() => openPhoneEdit(row))} />
+            <QuickActionRow
+              icon={<WhatsAppIcon className="h-5 w-5" />}
+              label="Invite on WhatsApp"
+              href={inviteHref || null}
+              external
+              disabled={!inviteHref}
+              title={inviteHref ? undefined : 'No mobile on file'}
+              onClick={inviteHref ? closeMenu : undefined}
+            />
+            <QuickActionRow icon={<UserPlus className="h-5 w-5" />} label="Create account" onClick={pick(() => setCreatingFor(row))} />
+            <QuickActionRow icon={<Link2 className="h-5 w-5" />} label="Link to existing account" onClick={pick(() => toggleLinking(row, match))} />
+          </div>
+        )
+      })()}
 
       {/* Desktop: the Staff table's columns. */}
       <table className="hidden w-full table-fixed text-left md:table">

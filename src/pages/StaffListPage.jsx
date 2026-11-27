@@ -1410,6 +1410,7 @@ export default function StaffListPage() {
                             <button
                               onClick={e => { e.stopPropagation(); toggleQuickActions(person, e.currentTarget) }}
                               aria-label="Quick actions"
+                              aria-haspopup="menu"
                               title="Quick actions"
                               // The visible dot stays small (keeps the row
                               // compact), but the actual tappable area is

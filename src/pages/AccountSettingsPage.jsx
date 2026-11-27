@@ -7,12 +7,9 @@ import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { getCroppedImageBlob } from '../lib/cropImage'
 import ProfileAvatar, { StatusBadge, StatusPicker } from '../components/ProfileAvatar'
-import { LAST_PATH_KEY } from '../components/AppLayout'
-import { navLabelForPath } from '../lib/navLabels'
 import ClearableInput from '../components/ClearableInput'
 import SelectMenu from '../components/SelectMenu'
 import PageHeader from '../components/PageHeader'
-import Breadcrumb from '../components/Breadcrumb'
 import SectionLabel from '../components/SectionLabel'
 import CapsLockNotice from '../components/CapsLockNotice'
 import DetailInfoButton from '../components/DetailInfoButton'
@@ -507,7 +504,7 @@ function describeTargetLoadError(error) {
 }
 
 export default function AccountSettingsPage() {
-  const { user, profile: myProfile, isAdmin, isLocum, isClerk, isSuperAdmin, refreshProfile, signOut } = useAuth()
+  const { user, profile: myProfile, isAdmin, isSuperAdmin, refreshProfile, signOut } = useAuth()
   const { id: routeId } = useParams()
   const { choice: themeChoice, setTheme, choices: themeChoices } = useTheme()
   const swatch = useSwatch()
@@ -1434,11 +1431,6 @@ export default function AccountSettingsPage() {
     : (ROLE_LABELS[profile.role] || profile.role)
   const permissionLabel = profile.is_admin ? (profile.is_super_admin ? 'Super-admin' : 'Admin') : null
 
-  // Matches the "← All staff" link template used by the pending-approvals
-  // and user-requests tabs, rather than a bare icon button — lets the link
-  // say where it's actually going back to.
-  const lastPath = sessionStorage.getItem(LAST_PATH_KEY) || '/'
-  const backLabel = navLabelForPath(lastPath, { isAdmin, isLocum, isClerk })
 
   async function handleSignOut() {
     await signOut()
@@ -1448,19 +1440,8 @@ export default function AccountSettingsPage() {
   return (
     <div className="mx-auto max-w-7xl pb-12 md:max-w-2xl">
       <PageHeader title="Account" />
-      {/* Dynamic "back to wherever you came from" link, not a fixed
-          hierarchical breadcrumb — Account is a top-level nav destination,
-          not a drill-down from Staff, so this deliberately doesn't say
-          "← Staff" unless that's genuinely where the viewer came from (see
-          navLabelForPath). Restyled onto the shared Breadcrumb component;
-          the underlying behavior is unchanged.
-          Only rendered for an actual drill-down (routeId present — e.g. a
-          Staff list row linking to /account/:id): the sidebar/bottom-nav
-          Account item always links to the bare /account, which has no
-          routeId, so a viewer who tapped their own primary nav item never
-          sees a "back to X" link implying they navigated in from somewhere
-          they didn't. */}
-      {routeId && <Breadcrumb label={backLabel} onClick={() => navigate(lastPath)} />}
+      {/* Back: the app-wide back link above the title (AppLayout), the one
+          standard place for it; this page draws none of its own. */}
 
       {cropSrc && (
         <AvatarCropModal

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useSwipeNavigation } from '../lib/swipeNavigation'
 import { useBackTarget, BackTargetContext, drawsOwnBack } from '../lib/backNav'
@@ -6,6 +6,8 @@ import BackLink from './BackLink'
 import { UsersRound, NotebookTabs, UserCog, Grid2x2Check } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
+import { useLiveRefresh } from '../lib/useLiveRefresh'
+import { onBadgesChanged } from '../lib/navBadges'
 import RotaCat from '../components/RotaCat'
 import ProfileAvatar, { StatusPicker } from '../components/ProfileAvatar'
 import { CATEGORY_LABELS } from '../lib/categoryLabels'
@@ -142,33 +144,38 @@ export default function AppLayout() {
     }
   }, [location.pathname])
 
-  // Combined "needs admin attention" count for the Staff nav badge — new
-  // registrations awaiting approval, plus pending account change requests.
-  // Refetched on every navigation so it stays fresh after acting on either
-  // list from the Staff page itself.
-  useEffect(() => {
-    if (!isAdmin) { setStaffBadgeCount(0); return }
-    let cancelled = false
+  // The two "needs admin attention" nav badges: Staff (new registrations
+  // awaiting approval plus pending account change requests) and Planners
+  // (pending leave requests). Read when an admin's layout mounts, then
+  // quietly once a minute and on return to the app (useLiveRefresh) — not
+  // on every page change — and straight after an admin decides one of
+  // those (notifyBadgesChanged, lib/navBadges).
+  const badgesLive = useRef(true)
+  const loadBadges = useCallback(() => {
+    if (!isAdmin) return
     Promise.all([
       supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('is_approved', false).eq('is_rejected', false),
       supabase.from('account_change_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
-    ]).then(([pendingRes, requestsRes]) => {
-      if (!cancelled) setStaffBadgeCount((pendingRes.count || 0) + (requestsRes.count || 0))
-    })
-    return () => { cancelled = true }
-  }, [isAdmin, location.pathname])
-
-  // Pending leave requests awaiting review, for the Planners nav badge —
-  // same "needs admin attention" reasoning and refetch-on-navigation
-  // cadence as the Staff badge above, just a different queue.
+      supabase.from('leave_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+    ]).then(([pendingRes, requestsRes, leaveRes]) => {
+      if (!badgesLive.current) return
+      setStaffBadgeCount((pendingRes.count || 0) + (requestsRes.count || 0))
+      setPendingLeaveBadgeCount(leaveRes.count || 0)
+    }).catch(() => {})
+  }, [isAdmin])
   useEffect(() => {
-    if (!isAdmin) { setPendingLeaveBadgeCount(0); return }
-    let cancelled = false
-    supabase.from('leave_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending').then(({ count }) => {
-      if (!cancelled) setPendingLeaveBadgeCount(count || 0)
+    badgesLive.current = true
+    if (!isAdmin) { setStaffBadgeCount(0); setPendingLeaveBadgeCount(0); return undefined }
+    loadBadges()
+    // A bulk approve decides several in a row; one re-read covers them.
+    let timer = null
+    const off = onBadgesChanged(() => {
+      clearTimeout(timer)
+      timer = setTimeout(loadBadges, 250)
     })
-    return () => { cancelled = true }
-  }, [isAdmin, location.pathname])
+    return () => { badgesLive.current = false; off(); clearTimeout(timer) }
+  }, [isAdmin, loadBadges])
+  useLiveRefresh(loadBadges, { enabled: isAdmin })
 
   const navItems = isAdmin  ? adminNav
                  : isLocum  ? locumNav

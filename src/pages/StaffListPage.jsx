@@ -35,6 +35,7 @@ import InfoPopover from '../components/InfoPopover'
 import { fetchProfilesById } from '../lib/changeLog'
 import { buildRequestHistory, filterRequestHistory, historyFiltersActive, EMPTY_HISTORY_FILTERS, HISTORY_STATUS_OPTIONS, HISTORY_TYPE_OPTIONS } from '../lib/requestHistory'
 import RequestRow from '../components/RequestRow'
+import { notifyBadgesChanged } from '../lib/navBadges'
 
 // ── Display label maps ────────────────────────
 const ROLE_LABELS = {
@@ -685,6 +686,7 @@ export default function StaffListPage() {
       alert('Could not approve account: ' + error.message)
       return false
     }
+    notifyBadgesChanged()
 
     const leaveDays = annualLeaveDaysForCategory(category)
     if (leaveDays !== null) {
@@ -715,6 +717,7 @@ export default function StaffListPage() {
       alert('Could not reject account: ' + error.message)
       return false
     }
+    notifyBadgesChanged()
     return true
   }
 
@@ -783,6 +786,7 @@ export default function StaffListPage() {
     }).eq('id', request.id)
 
     if (error) alert('Could not update request: ' + error.message)
+    else notifyBadgesChanged()
     await loadAll()
     setRequestActioningId(null)
   }
@@ -799,6 +803,7 @@ export default function StaffListPage() {
     }).eq('id', request.id)
 
     if (error) alert('Could not update request: ' + error.message)
+    else notifyBadgesChanged()
     await loadAll()
     setRequestActioningId(null)
   }

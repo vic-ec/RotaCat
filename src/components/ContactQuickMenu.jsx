@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ChevronDown, Mail, MessageSquareText, Phone, Smartphone } from 'lucide-react'
 import WhatsAppIcon from './icons/WhatsAppIcon'
-import { fetchContactCard } from '../lib/contactCard'
+import { fetchContactCard, getCachedContactCard } from '../lib/contactCard'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { phoneSmsHref, phoneTelHref, phoneWhatsAppHref } from '../lib/phone'
@@ -81,19 +81,23 @@ export function ContactFlyout({ section, anchor, phone, menuRef, onPicked, onMis
 
 // The Dashboard's menu on a name (who is on shift, the consultant on
 // call): name and shift at the top, then Message, Call and Mail. Contact
-// details load when it opens. `target` = { profileId | contactId, name,
+// details come from memory when the board has prefilled them (no loading
+// state), else load when it opens. `target` = { profileId | contactId, name,
 // meta, anchor (DOMRect) }; `triggerRef` is the name tapped, so tapping it
 // again closes the menu rather than reopening it.
 export default function ContactQuickMenu({ target, onClose, triggerRef }) {
-  const [card, setCard] = useState(undefined) // undefined loading, null unavailable
+  // undefined loading, null unavailable
+  const [card, setCard] = useState(() => getCachedContactCard({ profileId: target.profileId, contactId: target.contactId }))
   const [section, setSection] = useState(null) // null | 'message' | 'call'
   const [sectionAnchor, setSectionAnchor] = useState(null)
   const menuRef = useRef(null)
   const flyoutRef = useRef(null)
   useEffect(() => {
-    let live = true
-    setCard(undefined)
     setSection(null)
+    const cached = getCachedContactCard({ profileId: target.profileId, contactId: target.contactId })
+    setCard(cached)
+    if (cached !== undefined) return undefined
+    let live = true
     fetchContactCard({ profileId: target.profileId, contactId: target.contactId }).then(c => { if (live) setCard(c) })
     return () => { live = false }
   }, [target.profileId, target.contactId])

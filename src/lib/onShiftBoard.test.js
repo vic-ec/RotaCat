@@ -60,6 +60,16 @@ describe('buildOnShiftBoard', () => {
   })
 })
 
+describe('buildOnShiftBoard — contactProfiles', () => {
+  it('lists the profile of everyone on now or next, and the consultant on call, once each', () => {
+    const board = buildOnShiftBoard(ROWS, new Date(2026, 10, 24, 14, 30))
+    expect(board.contactProfiles.map(p => p.id).sort()).toEqual(['c1', 'p-Botha', 'p-Khan', 'p-Mokoena', 'p-Ndlovu', 'p-Petersen'])
+    expect(board.contactProfiles.find(p => p.id === 'c1')).toMatchObject({ name: 'Kate', surname: 'Meyer' })
+    // Off shift (last night's Zephyr, tonight's Adams) isn't prefilled.
+    expect(board.contactProfiles.map(p => p.id)).not.toContain('p-Zephyr')
+  })
+})
+
 describe('boardPerson', () => {
   it('labels doctors, locums covering someone, and open slots', () => {
     expect(boardPerson(ROWS[2]).label).toBe('Zara Khan · Registrar')

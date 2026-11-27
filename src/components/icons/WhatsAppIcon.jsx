@@ -1,11 +1,13 @@
 // WhatsApp's mark (speech bubble with a handset), drawn as one shape with
-// no background: black in day mode, white when the phone or computer is in
-// dark mode. Sized like the lucide icons beside it (pass h-/w- classes).
+// no background. It takes the colour of the text around it (currentColor),
+// so it matches the icons beside it (ink-muted greys, hover states) in
+// both the day and dark themes. Sized like the lucide icons beside it
+// (pass h-/w- classes).
 export default function WhatsAppIcon({ className = 'h-5 w-5' }) {
   return (
     <svg
       viewBox="40 40 800 800"
-      className={`flex-shrink-0 text-black dark:text-white ${className}`}
+      className={`flex-shrink-0 ${className}`}
       fill="currentColor"
       fillRule="evenodd"
       aria-hidden="true"

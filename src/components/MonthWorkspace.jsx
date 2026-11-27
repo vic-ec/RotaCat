@@ -267,7 +267,7 @@ export default function MonthWorkspace({
 
       {requestFormDate && (
         <Modal title="Request annual leave" onClose={() => setRequestFormDate(null)} centered>
-          <LeaveRequestForm
+          <LeaveRequestForm onCancel={() => setRequestFormDate(null)}
             initialDateFrom={requestFormDate}
             initialDateTo={requestFormDate}
             onSubmitted={() => { setRequestFormDate(null); onDataChanged() }}

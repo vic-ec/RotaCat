@@ -88,9 +88,6 @@ export default function CancelLeaveModal({ request, isOwn, onClose, onCancelled,
       maxWidthClassName="md:max-w-[480px]"
       footer={
         <>
-          <button type="button" onClick={onClose} disabled={saving} className="btn-secondary text-sm">
-            Keep leave
-          </button>
           <button
             type="button"
             onClick={confirm}
@@ -99,6 +96,9 @@ export default function CancelLeaveModal({ request, isOwn, onClose, onCancelled,
             title={isValidCancelReason(reason) ? undefined : 'A reason is required'}
           >
             {saving ? 'Cancelling…' : 'Cancel leave'}
+          </button>
+          <button type="button" onClick={onClose} disabled={saving} className="btn-secondary text-sm">
+            Keep leave
           </button>
         </>
       }

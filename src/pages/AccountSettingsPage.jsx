@@ -2533,11 +2533,11 @@ export default function AccountSettingsPage() {
           onClose={adminEmailSaving ? () => {} : () => setAdminEmailDialog(null)}
           footer={
             <>
-              <button type="button" className="btn-secondary" onClick={() => setAdminEmailDialog(null)} disabled={adminEmailSaving}>
-                Cancel
-              </button>
               <button type="button" className="btn-primary" onClick={confirmAdminEmailChange} disabled={adminEmailSaving}>
                 {adminEmailSaving ? 'Changing…' : 'Change email'}
+              </button>
+              <button type="button" className="btn-secondary" onClick={() => setAdminEmailDialog(null)} disabled={adminEmailSaving}>
+                Cancel
               </button>
             </>
           }

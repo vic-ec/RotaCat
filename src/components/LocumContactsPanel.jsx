@@ -245,6 +245,9 @@ export default function LocumContactsPanel({ onLinked, onCount }) {
           <button type="button" disabled={busy || !linkTarget} onClick={() => link(row, linkTarget)} className="btn-primary px-3 py-1.5 text-xs">
             Move {count} shift{count === 1 ? '' : 's'}
           </button>
+          <button type="button" disabled={busy} onClick={() => { setLinkingFor(null); setLinkTarget(null) }} className="btn-secondary px-3 py-1.5 text-xs">
+            Cancel
+          </button>
         </div>
       )}
     </>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Mail, MessageCircle, MessageSquareText, Phone } from 'lucide-react'
+import { Mail, MessageSquareText, Phone } from 'lucide-react'
+import WhatsAppIcon from './icons/WhatsAppIcon'
 import { ActionSheet } from './ActionSheet'
 import { fetchContactCard } from '../lib/contactCard'
 import { formatPhoneDisplay, phoneSmsHref, phoneTelHref, phoneWhatsAppHref } from '../lib/phone'
@@ -29,7 +30,7 @@ export default function ContactSheet({ target, onClose }) {
   const actions = [
     { key: 'call', label: 'Call', icon: <Phone className="h-5 w-5" />, href: phoneTelHref(phone) },
     { key: 'sms', label: 'Message', icon: <MessageSquareText className="h-5 w-5" />, href: phoneSmsHref(phone) },
-    { key: 'wa', label: 'WhatsApp', icon: <MessageCircle className="h-5 w-5" />, href: phoneWhatsAppHref(phone), external: true },
+    { key: 'wa', label: 'WhatsApp', icon: <WhatsAppIcon className="h-5 w-5" />, href: phoneWhatsAppHref(phone), external: true },
     { key: 'mail', label: 'Email', icon: <Mail className="h-5 w-5" />, href: email ? `mailto:${email}` : null },
   ]
 

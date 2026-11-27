@@ -1,27 +1,36 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import AppLayout from './components/AppLayout'
-import AccountSlideOverPanel from './components/AccountSlideOverPanel'
-import PendingApprovalSlideOverPanel from './components/PendingApprovalSlideOverPanel'
+import PageLoading from './components/PageLoading'
 
 import LoginPage from './pages/LoginPage'
-import SignupPage from './pages/SignupPage'
-import ResetPasswordPage from './pages/ResetPasswordPage'
-import SetPasswordPage from './pages/SetPasswordPage'
-import PendingApprovalPage from './pages/PendingApprovalPage'
-import DashboardPage from './pages/DashboardPage'
-import StaffListPage from './pages/StaffListPage'
-import RosterDashboardPage from './pages/RosterDashboardPage'
-import GenerationConfigPage from './pages/GenerationConfigPage'
-import BlankRosterConfigPage from './pages/BlankRosterConfigPage'
-import RosterGridPage from './pages/RosterGridPage'
-import AccountSettingsPage from './pages/AccountSettingsPage'
-import PendingApprovalReviewPage from './pages/PendingApprovalReviewPage'
-import LeavePlannerPage from './pages/LeavePlannerPage'
-import WeekendPlannerPage from './pages/WeekendPlannerPage'
-import MyYearPage from './pages/MyYearPage'
-import PlaceholderPage from './pages/PlaceholderPage'
+
+// Every other page (and the two slide-over panels) is its own download,
+// fetched the first time it is visited, so the first load carries only the
+// sign-in screen and the app shell. The PWA precaches every chunk once
+// installed, so pages still open offline. Inside the shell the fallback is
+// AppLayout's (around its <Outlet />, so the nav stays); outside it, the
+// full-screen one below.
+const SignupPage = lazy(() => import('./pages/SignupPage'))
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'))
+const SetPasswordPage = lazy(() => import('./pages/SetPasswordPage'))
+const PendingApprovalPage = lazy(() => import('./pages/PendingApprovalPage'))
+const DashboardPage = lazy(() => import('./pages/DashboardPage'))
+const StaffListPage = lazy(() => import('./pages/StaffListPage'))
+const RosterDashboardPage = lazy(() => import('./pages/RosterDashboardPage'))
+const GenerationConfigPage = lazy(() => import('./pages/GenerationConfigPage'))
+const BlankRosterConfigPage = lazy(() => import('./pages/BlankRosterConfigPage'))
+const RosterGridPage = lazy(() => import('./pages/RosterGridPage'))
+const AccountSettingsPage = lazy(() => import('./pages/AccountSettingsPage'))
+const PendingApprovalReviewPage = lazy(() => import('./pages/PendingApprovalReviewPage'))
+const LeavePlannerPage = lazy(() => import('./pages/LeavePlannerPage'))
+const WeekendPlannerPage = lazy(() => import('./pages/WeekendPlannerPage'))
+const MyYearPage = lazy(() => import('./pages/MyYearPage'))
+const PlaceholderPage = lazy(() => import('./pages/PlaceholderPage'))
+const AccountSlideOverPanel = lazy(() => import('./components/AccountSlideOverPanel'))
+const PendingApprovalSlideOverPanel = lazy(() => import('./components/PendingApprovalSlideOverPanel'))
 
 // Standalone (outside the ProtectedRoute shell) because that shell is
 // exactly what redirects here — routing it inside would loop. The page
@@ -56,88 +65,94 @@ function AppRoutes() {
 
   return (
     <>
-      <Routes location={backgroundLocation || location}>
-        {/* Public routes */}
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/signup" element={<SignupPage />} />
-        {/* Retired standalone page — Forgot Password is now a modal on
-            /login (see LoginPage.jsx's ForgotPasswordModal). Kept as a
-            redirect for any stale bookmarks/links, forwarding straight
-            into that modal via the ?forgot=1 deep link. */}
-        <Route path="/forgot-password" element={<Navigate to="/login?forgot=1" replace />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
-        <Route path="/set-password" element={<SetPasswordRoute />} />
-        <Route path="/pending" element={<PendingRoute />} />
+      <Suspense fallback={<PageLoading fullScreen />}>
+        <Routes location={backgroundLocation || location}>
+          {/* Public routes */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignupPage />} />
+          {/* Retired standalone page — Forgot Password is now a modal on
+              /login (see LoginPage.jsx's ForgotPasswordModal). Kept as a
+              redirect for any stale bookmarks/links, forwarding straight
+              into that modal via the ?forgot=1 deep link. */}
+          <Route path="/forgot-password" element={<Navigate to="/login?forgot=1" replace />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/set-password" element={<SetPasswordRoute />} />
+          <Route path="/pending" element={<PendingRoute />} />
 
-        {/* Protected app shell */}
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute>
-              <AppLayout />
-            </ProtectedRoute>
-          }
-        >
-          <Route index element={<DashboardPage />} />
-
-          {/* Phase 4: Roster screens */}
-          <Route path="roster" element={<RosterDashboardPage />} />
-          <Route path="roster/generate" element={<GenerationConfigPage />} />
-          <Route path="roster/build" element={<BlankRosterConfigPage />} />
-          <Route path="roster/:id" element={<RosterGridPage />} />
-          {/* Hours Summary now lives inside RosterDashboardPage as a tab
-              (?view=summary) rather than its own route — this redirects
-              anyone with the old standalone URL bookmarked/cached. */}
-          <Route path="roster-summary" element={<Navigate to="/roster?view=summary" replace />} />
-
-          <Route path="staff" element={<StaffListPage />} />
-          <Route path="staff/pending/:id" element={<PendingApprovalReviewPage />} />
-          <Route path="account" element={<AccountSettingsPage />} />
-          <Route path="account/:id" element={<AccountSettingsPage />} />
-          <Route path="leave" element={<LeavePlannerPage />} />
-          <Route path="weekend" element={<WeekendPlannerPage />} />
-          {/* "My year": the signed-in doctor's own, or (admins) someone
-              else's. Reached from My leave, Account, All Leave and the
-              Staff list — deliberately not a nav item. */}
-          <Route path="my-year" element={<MyYearPage />} />
-          <Route path="my-year/:profileId" element={<MyYearPage />} />
+          {/* Protected app shell */}
           <Route
-            path="swaps"
-            element={<PlaceholderPage title="Shift swaps" description="Swap request workflow coming in a later phase." maxWidthClassName="md:max-w-2xl" />}
-          />
-          <Route
-            path="shifts"
-            element={<PlaceholderPage title="Open shifts" description="Locum shift marketplace coming in a later phase." />}
-          />
-          <Route
-            path="settings"
-            element={<PlaceholderPage title="Settings" description="No-code constraint editor coming in a later phase." />}
-          />
-        </Route>
-
-        {/* Fallback */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-
-      {backgroundLocation && (
-        <Routes>
-          <Route
-            path="/account/:id"
+            path="/"
             element={
               <ProtectedRoute>
-                <AccountSlideOverPanel />
+                <AppLayout />
               </ProtectedRoute>
             }
-          />
-          <Route
-            path="/staff/pending/:id"
-            element={
-              <ProtectedRoute>
-                <PendingApprovalSlideOverPanel />
-              </ProtectedRoute>
-            }
-          />
+          >
+            <Route index element={<DashboardPage />} />
+
+            {/* Phase 4: Roster screens */}
+            <Route path="roster" element={<RosterDashboardPage />} />
+            <Route path="roster/generate" element={<GenerationConfigPage />} />
+            <Route path="roster/build" element={<BlankRosterConfigPage />} />
+            <Route path="roster/:id" element={<RosterGridPage />} />
+            {/* Hours Summary now lives inside RosterDashboardPage as a tab
+                (?view=summary) rather than its own route — this redirects
+                anyone with the old standalone URL bookmarked/cached. */}
+            <Route path="roster-summary" element={<Navigate to="/roster?view=summary" replace />} />
+
+            <Route path="staff" element={<StaffListPage />} />
+            <Route path="staff/pending/:id" element={<PendingApprovalReviewPage />} />
+            <Route path="account" element={<AccountSettingsPage />} />
+            <Route path="account/:id" element={<AccountSettingsPage />} />
+            <Route path="leave" element={<LeavePlannerPage />} />
+            <Route path="weekend" element={<WeekendPlannerPage />} />
+            {/* "My year": the signed-in doctor's own, or (admins) someone
+                else's. Reached from My leave, Account, All Leave and the
+                Staff list — deliberately not a nav item. */}
+            <Route path="my-year" element={<MyYearPage />} />
+            <Route path="my-year/:profileId" element={<MyYearPage />} />
+            <Route
+              path="swaps"
+              element={<PlaceholderPage title="Shift swaps" description="Swap request workflow coming in a later phase." maxWidthClassName="md:max-w-2xl" />}
+            />
+            <Route
+              path="shifts"
+              element={<PlaceholderPage title="Open shifts" description="Locum shift marketplace coming in a later phase." />}
+            />
+            <Route
+              path="settings"
+              element={<PlaceholderPage title="Settings" description="No-code constraint editor coming in a later phase." />}
+            />
+          </Route>
+
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+      </Suspense>
+
+      {/* No fallback: the page underneath stays as it is until the panel's
+          code arrives, then it slides in as before. */}
+      {backgroundLocation && (
+        <Suspense fallback={null}>
+          <Routes>
+            <Route
+              path="/account/:id"
+              element={
+                <ProtectedRoute>
+                  <AccountSlideOverPanel />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/staff/pending/:id"
+              element={
+                <ProtectedRoute>
+                  <PendingApprovalSlideOverPanel />
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+        </Suspense>
       )}
     </>
   )

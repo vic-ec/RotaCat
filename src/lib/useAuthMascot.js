@@ -1,7 +1,9 @@
 import { useTheme } from '../context/ThemeContext'
 import { DARK_THEME } from './themes'
-import mascotLight from '../assets/rotacat-full-body-mascot-cutout.png'
-import mascotDark from '../assets/RotaCat-full-body-mascot-dark-transparentBG-dehaloed.png'
+// WebP copies at 2x their largest drawn size (430px tall); the original PNGs
+// stay in src/assets as the masters.
+import mascotLight from '../assets/rotacat-mascot-light.webp'
+import mascotDark from '../assets/rotacat-mascot-dark.webp'
 
 // The auth mascot is the one image in the app that cannot simply be recoloured
 // by the theme: it is a rendered cut-out, not an icon. The light artwork is a

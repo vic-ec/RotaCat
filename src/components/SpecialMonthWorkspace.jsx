@@ -201,7 +201,7 @@ export default function SpecialMonthWorkspace({
 
       {requestFormDate && (
         <Modal title="Request special leave" onClose={() => setRequestFormDate(null)} centered>
-          <LeaveRequestForm
+          <LeaveRequestForm onCancel={() => setRequestFormDate(null)}
             initialDateFrom={requestFormDate}
             initialDateTo={requestFormDate}
             // Opened from the Special tab, so the type leads with Special

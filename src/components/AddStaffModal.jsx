@@ -299,14 +299,14 @@ export default function AddStaffModal({ onClose, onCreated, initialValues = null
       onClose={onClose}
       footer={
         <>
-          <button type="button" className="btn-secondary px-3" onClick={onClose} disabled={submitting}>
-            Cancel
+          <button type="submit" form="add-staff-form" className="btn-primary flex-1 whitespace-nowrap px-3" disabled={submitting}>
+            {submitting ? 'Creating…' : 'Create account'}
           </button>
           <button type="button" className="btn-secondary px-3" onClick={clearForm} disabled={submitting}>
             Clear form
           </button>
-          <button type="submit" form="add-staff-form" className="btn-primary flex-1 whitespace-nowrap px-3" disabled={submitting}>
-            {submitting ? 'Creating…' : 'Create account'}
+          <button type="button" className="btn-secondary px-3" onClick={onClose} disabled={submitting}>
+            Cancel
           </button>
         </>
       }

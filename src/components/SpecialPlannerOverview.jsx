@@ -219,7 +219,7 @@ export default function SpecialPlannerOverview({
 
       {requestOpen && (
         <Modal title="Request special leave" onClose={() => setRequestOpen(false)} centered>
-          <LeaveRequestForm initialLeaveType="special_leave" onSubmitted={() => { setRequestOpen(false); onRequestSubmitted?.() }} />
+          <LeaveRequestForm onCancel={() => setRequestOpen(false)} initialLeaveType="special_leave" onSubmitted={() => { setRequestOpen(false); onRequestSubmitted?.() }} />
         </Modal>
       )}
     </div>

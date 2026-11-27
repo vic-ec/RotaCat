@@ -129,7 +129,7 @@ export default function LeaveDashboard() {
           Upcoming list behind it, so the new request is already there. */}
       {showForm && (
         <Modal title="Request leave" onClose={() => setShowForm(false)} centered>
-          <LeaveRequestForm onSubmitted={() => { load(); setShowForm(false) }} />
+          <LeaveRequestForm onCancel={() => setShowForm(false)} onSubmitted={() => { load(); setShowForm(false) }} />
         </Modal>
       )}
     </div>

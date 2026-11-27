@@ -19,9 +19,10 @@ function CloseIcon(props) {
 // this exact centered-popup/bottom-sheet pattern. See
 // docs/design/layout-spec.md §11.
 //
-// `footer`: right-aligned buttons (Cancel then Primary, per spec) — pass
-// them as children of a `<div className="flex justify-end gap-2">`-shaped
-// fragment; Modal just supplies the sticky positioning around them.
+// `footer`: the buttons, primary first on the left, then any secondary
+// action, then Cancel last (Create account · Clear form · Cancel) — pass
+// them as a fragment in that order; Modal just supplies the sticky
+// positioning and the left-aligned row around them.
 //
 // `centered`: opt in to a centered card on EVERY viewport rather than the
 // bottom-sheet-below-768px default — for a dialog the viewer deliberately
@@ -83,7 +84,7 @@ export default function Modal({
         </div>
         <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-4">{children}</div>
         {footer && (
-          <div className="flex flex-shrink-0 justify-end gap-2 border-t border-slate-line px-5 py-3">
+          <div className="flex flex-shrink-0 justify-start gap-2 border-t border-slate-line px-5 py-3">
             {footer}
           </div>
         )}

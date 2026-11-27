@@ -217,7 +217,7 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, wee
         })
         return (
           <Modal title="Request weekend off" onClose={() => setRequestOpen(false)} centered>
-            <LeaveRequestForm
+            <LeaveRequestForm onCancel={() => setRequestOpen(false)}
               initialLeaveType="weekend_exception"
               initialDateFrom={saturday}
               initialDateTo={addDays(saturday, 1)}

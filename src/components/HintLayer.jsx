@@ -16,7 +16,7 @@ import { createPortal } from 'react-dom'
 // Mouse: shown after a short pause (so sweeping across a toolbar doesn't
 // flicker), hidden on leave, click, scroll or a key. Touch: shown on a tap
 // and kept until the next tap, a scroll or a key — the tap still does
-// whatever it does. Under sheets and modals (z-40) so a menu the tap opened
+// whatever it does. A tap that opens a menu, sheet or dialog shows none. Under sheets and modals (z-40) so a menu the tap opened
 // covers it.
 //
 // A lifted finger fires pointerout with no relatedTarget, which for a
@@ -24,6 +24,14 @@ import { createPortal } from 'react-dom'
 // every tap hint a few milliseconds after it opened, so only a mouse
 // pointer leaving the window clears it.
 const HOVER_DELAY_MS = 350
+const TAP_SETTLE_MS = 60
+const SURFACES = '[role="menu"], [role="dialog"], [role="listbox"]'
+const openSurfaces = () => document.querySelectorAll(SURFACES).length
+// A control that says it opens a menu or panel.
+function opensSomething(el) {
+  const popup = el.getAttribute('aria-haspopup')
+  return (popup && popup !== 'false') || el.hasAttribute('aria-expanded')
+}
 const MAX_WIDTH = 256
 
 function hintTarget(node) {
@@ -79,17 +87,28 @@ export default function HintLayer() {
       timer = setTimeout(() => show(el), HOVER_DELAY_MS)
     }
     // A new tap closes the hint the last one opened.
+    let openBefore = 0
     function onPointerDown(e) {
-      if (e.pointerType !== 'mouse' && current) clear()
+      if (e.pointerType === 'mouse') return
+      if (current) clear()
+      openBefore = openSurfaces()
     }
+    // A tap that opens something (a menu, a sheet, a dialog) shows no hint:
+    // what opened says what the control does, and the label would sit on
+    // top of it until the next tap. Checked a moment after the tap, once
+    // the menu has rendered.
     function onPointerUp(e) {
       if (e.pointerType === 'mouse') { if (current) { clearTimeout(timer); setHint(null) } return }
       const el = hintTarget(e.target)
       clear()
-      if (!el) return
+      if (!el || opensSomething(el)) return
       current = el
       park(el)
-      show(el)
+      timer = setTimeout(() => {
+        if (current !== el) return
+        if (openSurfaces() > openBefore || el.getAttribute('aria-expanded') === 'true') { clear(); return }
+        show(el)
+      }, TAP_SETTLE_MS)
     }
     function onLeaveWindow(e) {
       if (e.pointerType === 'mouse' && !e.relatedTarget) clear()

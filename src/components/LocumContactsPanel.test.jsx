@@ -4,6 +4,11 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 // The panel draws a phone list and a desktop table; jsdom shows both, so
 // the tests read the phone list.
 const phone = () => within(document.querySelector('[data-testid="locum-contacts-panel"] ul'))
+// A phone row's ⋯ menu, opened.
+async function phoneMenu(user = userEvent) {
+  await user.click(phone().getByRole('button', { name: 'Actions for Jo Marsh' }))
+  return within(screen.getByTestId('locum-actions-menu'))
+}
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import LocumContactsPanel from './LocumContactsPanel'
@@ -60,7 +65,7 @@ describe('LocumContactsPanel', () => {
     render(<MemoryRouter><LocumContactsPanel /></MemoryRouter>)
     expect((await screen.findAllByText('Jo Marsh')).length).toBeGreaterThan(0)
     expect(phone().getByText(/3 shifts/)).toBeInTheDocument()
-    const invite = phone().getByRole('link', { name: 'WhatsApp Jo' })
+    const invite = (await phoneMenu()).getByRole('link', { name: 'Invite on WhatsApp' })
     expect(invite.getAttribute('href')).toMatch(/^https:\/\/wa\.me\/27821234567\?text=/)
     const text = decodeURIComponent(invite.getAttribute('href').split('?text=')[1])
     expect(text).toContain('Hi Jo.')
@@ -73,7 +78,7 @@ describe('LocumContactsPanel', () => {
     render(<MemoryRouter><LocumContactsPanel /></MemoryRouter>)
     await screen.findAllByText('Jo Marsh')
     expect(phone().getByText(/\(082\) 123-4567/)).toBeInTheDocument()
-    await userEvent.click(phone().getByRole('button', { name: "Edit Jo's mobile number" }))
+    await userEvent.click((await phoneMenu()).getByRole('button', { name: 'Edit mobile' }))
     const editor = phone().getByTestId('contact-phone-editor')
     const field = within(editor).getByRole('textbox', { name: "Jo's mobile number" })
     const update = within(editor).getByRole('button', { name: 'Update' })
@@ -94,7 +99,7 @@ describe('LocumContactsPanel', () => {
     fetchOpenLocumContacts.mockResolvedValue([CONTACT, { id: 'c-2', name: 'Ann', surname: 'Walker', phone: '0835550142' }])
     render(<MemoryRouter><LocumContactsPanel /></MemoryRouter>)
     await screen.findAllByText('Jo Marsh')
-    await userEvent.click(phone().getByRole('button', { name: "Edit Jo's mobile number" }))
+    await userEvent.click((await phoneMenu()).getByRole('button', { name: 'Edit mobile' }))
     const field = phone().getByRole('textbox', { name: "Jo's mobile number" })
     await userEvent.clear(field)
     await userEvent.type(field, '0835550142')
@@ -120,7 +125,7 @@ describe('LocumContactsPanel', () => {
     const user = userEvent.setup()
     render(<MemoryRouter><LocumContactsPanel /></MemoryRouter>)
     await screen.findAllByText('Jo Marsh')
-    await user.click(phone().getByRole('button', { name: "Create Jo's account" }))
+    await user.click((await phoneMenu(user)).getByRole('button', { name: 'Create account' }))
     expect(screen.getByText('AddStaffStub: Jo locum')).toBeInTheDocument()
   })
 
@@ -141,7 +146,7 @@ describe('LocumContactsPanel', () => {
     render(<MemoryRouter><LocumContactsPanel /></MemoryRouter>)
     await screen.findAllByText('Jo Marsh')
     expect(screen.queryByTestId('contact-match')).not.toBeInTheDocument()
-    await user.click(phone().getByRole('button', { name: 'Link Jo to an existing account' }))
+    await user.click((await phoneMenu(user)).getByRole('button', { name: 'Link to existing account' }))
     expect(phone().getByRole('button', { name: 'Move 3 shifts' })).toBeDisabled()
     await user.click(phone().getByText('Choose their locum account…'))
     await user.click(await screen.findByText('Marsh-Lee, Jo'))

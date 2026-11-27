@@ -1,3 +1,4 @@
+import React from 'react'
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, act } from '@testing-library/react'
 import HintLayer from './HintLayer'
@@ -30,6 +31,7 @@ describe('HintLayer', () => {
     render(<><button title="More actions">⋮</button><span>elsewhere</span><HintLayer /></>)
     const button = screen.getByRole('button')
     pointer('pointerup', button, 'touch')
+    act(() => { vi.advanceTimersByTime(100) })
     expect(screen.getByRole('tooltip')).toHaveTextContent('More actions')
     // A lifted finger "leaves" with no relatedTarget; that is not leaving the window.
     pointer('pointerout', button, 'touch')
@@ -39,6 +41,29 @@ describe('HintLayer', () => {
     pointer('pointerdown', screen.getByText('elsewhere'), 'touch')
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
     expect(button).toHaveAttribute('title', 'More actions')
+  })
+
+  it('a tap that opens a menu shows no label (the menu says what it does)', () => {
+    vi.useFakeTimers()
+    function Kebab() {
+      const [open, setOpen] = React.useState(false)
+      return (
+        <>
+          <button title="Quick actions" onPointerUp={() => setOpen(true)}>…</button>
+          {open && <div role="menu">Message</div>}
+        </>
+      )
+    }
+    render(<><Kebab /><button title="Opens a panel" aria-expanded="false">▾</button><HintLayer /></>)
+    pointer('pointerdown', screen.getByTitle('Quick actions'), 'touch')
+    pointer('pointerup', screen.getByTitle('Quick actions'), 'touch')
+    act(() => { vi.advanceTimersByTime(100) })
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
+    // A control marked as opening something shows none either.
+    pointer('pointerup', screen.getByTitle('Opens a panel'), 'touch')
+    act(() => { vi.advanceTimersByTime(100) })
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
   })
 
   it('a mouse leaving the window clears its label', () => {

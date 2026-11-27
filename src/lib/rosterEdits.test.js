@@ -8,7 +8,7 @@ import {
   assignCover, removeEntry, removeLocum, moveEntry, addCover, removeSlot, advertise, unadvertise,
   reinstate, reinstateBlocker, leaveQuestion, describeLinkedLeave, shiftMenuKind, emptySideEffects,
   swapEntries, swapProblem, afterLeaveCancelled, leaveShiftBlocker,
-  removeCover, moveCover, changeAbsenceReason, coverOf,
+  removeCover, moveCover, changeAbsenceReason, coverOf, moveDoctor, removeFromShift,
 } from './rosterEdits'
 import { cancelLeaveRequest } from './leaveCancellation'
 
@@ -329,5 +329,40 @@ describe('the cover on a shift a doctor came off', () => {
 
   it('Change why … is off: "other" needs a note', async () => {
     await expect(changeAbsenceReason({ ...base, entry: covered, shiftCode: 'WD_12', reason: 'other' })).rejects.toThrow(/note/)
+  })
+})
+
+describe('moveDoctor — rearranging, not an absence', () => {
+  it('moves the row itself and fills the slot left behind in one batch; nobody is struck through', async () => {
+    const result = await moveDoctor({
+      ...base, entry: doctorRow, shiftCode: 'WD_08', targetDate: '2026-08-12', targetShiftCode: 'WD_12', targetShiftTypeId: 'st2',
+      entries: [doctorRow], leave: 'fill', cover: { kind: 'doctor', id: 'doc-b' },
+    })
+    const [update] = entryUpdates()
+    expect(update.payload).toMatchObject({ date: '2026-08-12', shift_type_id: 'st2', is_manual_override: true })
+    expect(update.payload.vacated_profile_id).toBeUndefined()
+    const logs = logRows()
+    expect(logs.map(l => l.action)).toEqual(['move', 'assign'])
+    expect(logs[0]).toMatchObject({ date_before: '2026-08-10', shift_code_before: 'WD_08', batch_id: result.batchId })
+    // The filler's row says whom it replaced (its hint: "Bob Brown replaced Alice Anderson").
+    expect(logs[1]).toMatchObject({ profile_id_before: 'doc-a', profile_id_after: 'doc-b', batch_id: result.batchId })
+    expect(result.description).toMatch(/Alice Anderson moved to Wed 12 Aug · WD 12h-22h; Mon 10 Aug · WD 08h-18h: Bob Brown takes the slot/)
+  })
+
+  it('closing the slot left behind adds nothing; the same shift is refused', async () => {
+    await moveDoctor({ ...base, entry: doctorRow, shiftCode: 'WD_08', targetDate: '2026-08-11', targetShiftCode: 'WD_08', targetShiftTypeId: 'st1', entries: [doctorRow], leave: 'close' })
+    expect(mock.find('roster_entries', 'insert')).toHaveLength(0)
+    await expect(moveDoctor({ ...base, entry: doctorRow, shiftCode: 'WD_08', targetDate: '2026-08-10', targetShiftCode: 'WD_08', targetShiftTypeId: 'st1', entries: [doctorRow] }))
+      .rejects.toThrow('Pick a different shift.')
+  })
+})
+
+describe('removeFromShift — a reshuffle', () => {
+  it('open: the row becomes an open [ ] slot, logged as a remove, nobody struck through', async () => {
+    await removeFromShift({ ...base, entry: doctorRow, shiftCode: 'WD_08', mode: 'open' })
+    const [update] = entryUpdates()
+    expect(update.payload).toMatchObject({ profile_id: null, is_locum: true, locum_name: '[ ]' })
+    expect(update.payload.vacated_profile_id).toBeUndefined()
+    expect(logRows()[0]).toMatchObject({ action: 'remove', profile_id_before: 'doc-a' })
   })
 })

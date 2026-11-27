@@ -10,16 +10,10 @@ import { formatShortDateRange } from '../../lib/dateRange'
 import { LEAVE_TYPE_LABELS } from '../../lib/leaveRequests'
 import { totalLeaveDays } from '../../lib/leaveMatrix'
 import { reviewStatusLabel } from '../../lib/statusLabels'
-import { leaveBucket, leaveRecordCounts, coverForRequest, coverSummary, isCountedLeave } from '../../lib/myYear'
+import { coverForRequest, coverSummary, isCountedLeave } from '../../lib/myYear'
 import { rosterLinkForDate } from '../../lib/myYearData'
 import { leaveDestination } from '../../lib/myYearLinks'
 
-const FILTERS = [
-  { key: 'all', label: 'All' },
-  { key: 'annual', label: 'Annual' },
-  { key: 'sick', label: 'Sick' },
-  { key: 'other', label: 'Other' },
-]
 const PHONE_LIMIT = 5
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const STATUS_OPTIONS = ['approved', 'pending', 'rejected', 'cancelled'].map(v => ({ value: v, label: reviewStatusLabel(v) }))
@@ -36,12 +30,16 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
 
 // `?request=<id>` (a link to one request, e.g. a sick day from the
 // Overview): the list shows in full, scrolls to that request and rings it.
-export default function MyYearLeave({ rows, data, profileId, today, isAdmin = false, own = false }) {
+// `leading` (the page's one action, e.g. Capture leave) and `controls` (the
+// year stepper and Go to) share this tab's one controls row: on a desktop
+// action, search, Filter, then the year controls at the right; on a phone
+// action and year controls (search and Filter are the FAB's). The four
+// quick type buttons are gone: Filter narrows by leave type.
+export default function MyYearLeave({ rows, data, profileId, today, isAdmin = false, own = false, leading = null, controls = null }) {
   const [searchParams] = useSearchParams()
   const focusId = searchParams.get('request')
   const wide = useIsDesktop(1024)
   const isMd = useIsDesktop(768)
-  const [filter, setFilter] = useState('all')
   const [showAll, setShowAll] = useState(Boolean(focusId))
   const [q, setQ] = useState('')
   const [facets, setFacets] = useState(EMPTY)
@@ -60,10 +58,8 @@ export default function MyYearLeave({ rows, data, profileId, today, isAdmin = fa
   const active = Boolean(q) || facets.month.size > 0 || facets.leaveType.size > 0 || facets.status.size > 0
   const clearAll = () => { setQ(''); setFacets(EMPTY) }
 
-  const counts = useMemo(() => leaveRecordCounts(rows), [rows])
   const approvedDays = useMemo(() => rows.filter(isCountedLeave).reduce((s, r) => s + Number(totalLeaveDays(r)), 0), [rows])
   const items = useMemo(() => rows
-    .filter(r => filter === 'all' || leaveBucket(r.leave_type) === filter)
     .filter(r => !facets.leaveType.size || facets.leaveType.has(r.leave_type))
     .filter(r => !facets.status.size || facets.status.has(r.status))
     .filter(r => !facets.month.size || [...monthsOf(r)].some(m => facets.month.has(m)))
@@ -90,7 +86,7 @@ export default function MyYearLeave({ rows, data, profileId, today, isAdmin = fa
         // rejected or cancelled leave, or a sick day already on this list.
         open: leaveDestination(r, { isAdmin, own, wide, profileId, inLeaveTab: true }),
       }
-    }), [rows, filter, facets, q, data, profileId, today, isAdmin, own, wide])
+    }), [rows, facets, q, data, profileId, today, isAdmin, own, wide])
 
   // A phone shows the first few, with Show all; a wider screen, all.
   const phoneItems = showAll || isMd ? items : items.slice(0, PHONE_LIMIT)
@@ -98,11 +94,11 @@ export default function MyYearLeave({ rows, data, profileId, today, isAdmin = fa
   // The Staff list's spacing: 8px between the section bar and what it heads.
   return (
     <div className="space-y-2">
-      {/* Search and Filter above the section, as on the other lists; on a
-          phone they are the FAB's, and the leave type pills stay. */}
-      <div className="hidden md:block">
+      <div className="hidden items-center gap-2 md:flex">
+        {leading}
         <Toolbar
-          className=""
+          className="min-w-0 flex-1"
+          compact
           searchValue={q}
           onSearchChange={setQ}
           searchPlaceholder="Search type, month or status…"
@@ -110,35 +106,22 @@ export default function MyYearLeave({ rows, data, profileId, today, isAdmin = fa
           mobileMode="inline"
           active={active}
           onClearAll={clearAll}
+          trailing={controls && <div className="ml-auto flex flex-shrink-0 items-center gap-2">{controls}</div>}
         />
+      </div>
+      <div className="flex flex-nowrap items-center gap-2 md:hidden">
+        {leading}
+        {controls}
       </div>
       <FloatingActionMenu
         search={{ value: q, onChange: setQ, placeholder: 'Search type, month or status' }}
         filter={{ groups: filterGroups, active, onClearAll: clearAll, sheetTitle: 'Filters' }}
       />
-
-
-
-      {/* Four equal widths across the panel on a phone; the app's 30px
-          pill (no taller touch padding) everywhere. */}
-      <div className="grid grid-cols-4 gap-2 md:flex md:flex-wrap" role="group" aria-label="Filter by leave type">
-        {FILTERS.map(f => (
-          <button
-            key={f.key}
-            type="button"
-            aria-pressed={filter === f.key}
-            onClick={() => { setFilter(f.key); setShowAll(false) }}
-            className={`toolbar-pill px-2 md:px-3 ${filter === f.key ? 'toolbar-pill-active' : 'toolbar-pill-idle'}`}
-          >
-            {f.label} <span className="opacity-70">{counts[f.key]}</span>
-          </button>
-        ))}
-      </div>
       {/* What the old "Leave record" bar said: the tab is the section. */}
       <p className="text-xs text-ink-muted" data-testid="leave-record-summary">{plural(rows.length, 'request')} · {plural(approvedDays, 'day')} approved</p>
 
       {items.length === 0 ? (
-        <p className="card px-4 py-3 text-sm text-ink-muted">No leave requests{filter === 'all' && !active ? '' : ' match'} this year.</p>
+        <p className="card px-4 py-3 text-sm text-ink-muted">No leave requests{!active ? '' : ' match'} this year.</p>
       ) : (
         <>
           {/* One two-line row per request at every width: the column is the

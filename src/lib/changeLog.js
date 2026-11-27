@@ -98,7 +98,7 @@ export async function logWeekendPlannerChange({ weekendSaturday, category, actio
 export async function fetchLatestChangeByEntry(rosterMonthId) {
   const { data, error } = await supabase
     .from('roster_entry_changes')
-    .select('roster_entry_id, action, reason, profile_id_before, profile_id_after, date_before, changed_at')
+    .select('roster_entry_id, action, reason, profile_id_before, profile_id_after, date_before, shift_code_before, changed_by, changed_at')
     .eq('roster_month_id', rosterMonthId)
     .not('roster_entry_id', 'is', null)
     .order('changed_at', { ascending: false })

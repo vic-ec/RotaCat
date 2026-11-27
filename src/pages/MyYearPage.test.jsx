@@ -198,13 +198,13 @@ describe('MyYearPage', () => {
     expect(screen.queryByRole('button', { name: /leave$/ })).not.toBeInTheDocument()
   })
 
-  it('filters the leave record by type', async () => {
+  it('the Leave tab: no quick type buttons; search narrows the rows', async () => {
     renderAt('/my-year?tab=leave')
     await screen.findByTestId('leave-record-summary')
-    const group = screen.getByRole('group', { name: 'Filter by leave type' })
-    expect(within(group).getAllByRole('button').map(b => b.textContent)).toEqual(['All 3', 'Annual 1', 'Sick 1', 'Other 1'])
-    await userEvent.click(within(group).getByRole('button', { name: /Sick/ }))
-    // One two-line row per request at every width (no table).
+    expect(screen.queryByRole('group', { name: 'Filter by leave type' })).not.toBeInTheDocument()
+    expect(document.querySelectorAll('[data-request-id]')).toHaveLength(3)
+    const search = screen.getAllByPlaceholderText('Search type, month or status…')[0]
+    await userEvent.type(search, 'sick')
     const rows = document.querySelectorAll('[data-request-id]')
     expect(rows).toHaveLength(1)
     expect(rows[0].textContent).toMatch(/Sick leave.*Approved.*18–19 Nov 2026 · 2 days · Off roster/s)
@@ -237,15 +237,18 @@ describe('MyYearPage', () => {
     renderAt(`/my-year/${ADA}`)
     expect(await screen.findByRole('heading', { level: 1, name: 'Ada’s year' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'All Leave' })).toHaveAttribute('href', '/leave?tab=team&sub=all')
-    // No filled button on an admin's Overview…
+    // Capture leave first under the tabs on their Overview, then the year
+    // and Go to straight after it.
     expect(screen.queryByRole('button', { name: 'Request leave' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Capture leave' })).not.toBeInTheDocument()
-    // …Capture leave on the Leave tab.
-    await userEvent.click(screen.getByRole('button', { name: 'Leave' }))
-    expect(screen.getByRole('button', { name: 'Capture leave' })).toBeInTheDocument()
-
-    await userEvent.click(screen.getByRole('button', { name: /Go to/ }))
+    const controls = screen.getByTestId('my-year-controls')
+    const buttons = within(controls).getAllByRole('button')
+    expect(buttons[0]).toHaveAccessibleName('Capture leave')
+    expect(within(controls).getByRole('button', { name: /Go to/ })).toBeInTheDocument()
+    await userEvent.click(within(controls).getByRole('button', { name: /Go to/ }))
     expect(screen.getByRole('menuitem', { name: 'Account' })).toHaveAttribute('href', `/account/${ADA}`)
+    // …and on the Leave tab.
+    await userEvent.click(screen.getByRole('button', { name: 'Leave' }))
+    expect(screen.getAllByRole('button', { name: 'Capture leave' }).length).toBeGreaterThan(0)
   })
 
   it('hides Attendance from staff when the setting is off, and never from admins', async () => {

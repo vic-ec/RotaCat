@@ -46,7 +46,7 @@ import PageActionsMenu from '../components/PageActionsMenu'
 import RosterLanesView, { LanesLegend } from '../components/RosterLanesView'
 import { ROSTER_TEXT_SIZES, rosterTextSize, rosterTextScale, readRosterTextSize, storeRosterTextSize } from '../lib/rosterTextSize'
 import { labelForLeaveCategory } from '../lib/leaveYearGrid'
-import { shiftColumns } from '../lib/shiftLabels'
+import { shiftColumns, labelForShiftCode } from '../lib/shiftLabels'
 import { useSwatch } from '../lib/useSwatch'
 import { useIsDesktop } from '../lib/useIsDesktop'
 import { adjustedTimesLabel } from '../lib/shiftTimes'
@@ -1704,6 +1704,22 @@ export default function RosterGridPage() {
           onNewLocum={(entry, mode) => setNewLocumFor({ date: menu.date, shiftCode: menu.shiftCode, entry, mode })}
           lateArrival={menu.entry && lateOptionFor(menu.entry) ? { exists: lateByEntryId.has(menu.entry.id) } : null}
           onLateArrival={entry => setLateFor(lateOptionFor(entry))}
+          onMove={(entry, { date: targetDate, code, leave, cover = null }) => runEdit(() => rosterEdits.moveDoctor({
+            ...editArgs(entry), targetDate, targetShiftCode: code, targetShiftTypeId: shiftTypeIdFor(code), entries, leave, cover,
+          })).then(() => { if (cover?.kind === 'contact') refreshLocums() })}
+          onRemoveFromShift={(entry, mode) => runEdit(() => rosterEdits.removeFromShift({ ...editArgs(entry), mode }))}
+          occupants={(date, code) => entries
+            .filter(e => e.date === date && shiftTypes[e.shift_type_id] === code && (e.profile_id || (e.is_locum && locumDisplayName(e.locum_name))))
+            .map(e => (e.profile_id && !e.is_locum ? (displayNames?.get(e.profile_id) ?? profileMap[e.profile_id]?.surname ?? 'Doctor') : `[${locumDisplayName(e.locum_name) || displayNames?.get(e.profile_id) || 'Locum'}]`))
+            .join(', ')}
+          moveWarnings={(entry, date) => {
+            const notes = []
+            const other = findSameDayConflict({ entries, date, profileId: entry.profile_id, excludeEntryId: entry.id })
+            if (other) notes.push(`Already on ${labelForShiftCode(shiftTypes[other.shift_type_id] || '')} that day: the move will be refused.`)
+            if (workedNightShiftPreviousDay({ entries: entries.filter(e => e.id !== entry.id), shiftTypes, date, profileId: entry.profile_id })) notes.push('Worked a night shift the day before (rest after a night).')
+            if (isOnApprovedLeave({ leaveByProfile, profileId: entry.profile_id, date })) notes.push('On approved leave that day.')
+            return notes
+          }}
           onClose={() => setMenu(null)}
         />
       )}

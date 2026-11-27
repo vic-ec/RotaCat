@@ -531,7 +531,7 @@ describe('RosterGridPage editing: no cover, edit bar, undo', () => {
     const row = rowFor('2026-08-26')
     await user.click(within(row).getByText('Anderson'))
     expect(document.body.textContent).not.toMatch(/Remove from this slot/)
-    expect(screen.getByRole('radio', { name: /Remove Alice Anderson from this shift/ })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: /Remove from this shift/ })).toBeInTheDocument()
   })
 })
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, within, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import OnShiftPanel from './OnShiftPanel'
@@ -129,28 +129,49 @@ describe('OnShiftPanel — contact details', () => {
     })
   })
 
-  it('a tap on a doctor opens their contact card: mobile, email, and call / text / WhatsApp / email', async () => {
+  it('a tap on a doctor opens the contact menu: Message and Call (Mobile, WhatsApp) and Mail', async () => {
     vi.useRealTimers()
     render(<MemoryRouter><OnShiftPanel /></MemoryRouter>)
-    await userEvent.click(await screen.findByRole('button', { name: /Maurice Mokoena · MO\. Contact details/ }))
-    const sheet = await screen.findByTestId('contact-sheet')
+    const name = await screen.findByRole('button', { name: /Maurice Mokoena · MO\. Contact/ })
+    await userEvent.click(name)
+    const menu = await screen.findByTestId('contact-menu')
     expect(fetchContactCard).toHaveBeenCalledWith({ profileId: 'p-1', contactId: undefined })
-    expect(await within(sheet).findByTestId('contact-mobile')).toHaveTextContent('(082) 123-4567')
-    expect(within(sheet).getByTestId('contact-email')).toHaveTextContent('m@example.test')
-    expect(within(sheet).getByRole('link', { name: 'Call Maurice Mokoena' })).toHaveAttribute('href', 'tel:0821234567')
-    expect(within(sheet).getByRole('link', { name: 'WhatsApp Maurice Mokoena' })).toHaveAttribute('href', 'https://wa.me/27821234567')
-    expect(within(sheet).getByRole('link', { name: 'Email Maurice Mokoena' })).toHaveAttribute('href', 'mailto:m@example.test')
-    await userEvent.click(screen.getByRole('button', { name: 'Close' }))
-    expect(screen.queryByTestId('contact-sheet')).not.toBeInTheDocument()
+    expect(menu).toHaveTextContent('Maurice Mokoena')
+    expect(await within(menu).findByRole('link', { name: 'Mail' })).toHaveAttribute('href', 'mailto:m@example.test')
+    await userEvent.click(within(menu).getByRole('button', { name: 'Message' }))
+    let flyout = screen.getByRole('menu', { name: 'Message' })
+    expect(within(flyout).getByRole('link', { name: 'Mobile' })).toHaveAttribute('href', expect.stringMatching(/^sms:/))
+    expect(within(flyout).getByRole('link', { name: 'WhatsApp' })).toHaveAttribute('href', 'https://wa.me/27821234567')
+    await userEvent.click(within(menu).getByRole('button', { name: 'Call' }))
+    flyout = screen.getByRole('menu', { name: 'Call' })
+    expect(within(flyout).getByRole('link', { name: 'Mobile' })).toHaveAttribute('href', 'tel:0821234567')
+    expect(within(flyout).getByRole('link', { name: 'WhatsApp' })).toHaveAttribute('href', 'https://wa.me/27821234567')
+    // Tapping the name again closes it.
+    await userEvent.click(name)
+    expect(screen.queryByTestId('contact-menu')).not.toBeInTheDocument()
     // An open slot has nobody to contact.
     expect(screen.queryByRole('button', { name: /Open locum slot/ })).not.toBeInTheDocument()
+  })
+
+  it('no mobile on file: Mobile and WhatsApp show disabled', async () => {
+    vi.useRealTimers()
+    fetchContactCard.mockResolvedValue({ name: 'Maurice Mokoena', phone: null, email: null, emailVerified: false })
+    render(<MemoryRouter><OnShiftPanel /></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: /Maurice Mokoena · MO\. Contact/ }))
+    const menu = await screen.findByTestId('contact-menu')
+    await waitFor(() => expect(within(menu).getByRole('button', { name: 'Message' })).toBeEnabled())
+    expect(within(menu).getByRole('button', { name: 'Mail' })).toBeDisabled()
+    await userEvent.click(within(menu).getByRole('button', { name: 'Message' }))
+    const flyout = screen.getByRole('menu', { name: 'Message' })
+    expect(within(flyout).getByRole('button', { name: 'Mobile' })).toBeDisabled()
+    expect(within(flyout).getByRole('button', { name: 'WhatsApp' })).toBeDisabled()
   })
 
   it('the consultant on call opens theirs too', async () => {
     vi.useRealTimers()
     render(<MemoryRouter><OnShiftPanel /></MemoryRouter>)
     await userEvent.click(await screen.findByRole('button', { name: /Kate Meyer, consultant on call/ }))
-    expect(await screen.findByTestId('contact-sheet')).toHaveTextContent('Consultant on call')
+    expect(await screen.findByTestId('contact-menu')).toHaveTextContent('Consultant on call')
     expect(fetchContactCard).toHaveBeenCalledWith({ profileId: 'c-1', contactId: undefined })
   })
 })

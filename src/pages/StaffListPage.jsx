@@ -19,8 +19,8 @@ import AccountRequestReviewDrawer from '../components/AccountRequestReviewDrawer
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { useSwipeToDismiss } from '../lib/useSwipeToDismiss'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
-import { formatPhoneDisplay, phoneTelHref, phoneSmsHref, phoneWhatsAppHref } from '../lib/phone'
-import { msTeamsChatHref, msTeamsCallHref } from '../lib/msTeams'
+import { formatPhoneDisplay, phoneTelHref, phoneSmsHref } from '../lib/phone'
+import { ContactFlyout, QuickActionRow } from '../components/ContactQuickMenu'
 import { formatShortDateRange, todayStr } from '../lib/dateRange'
 import { isTempPasswordExpired, tempPasswordExpiresAt, formatExpiryDate } from '../lib/tempPassword'
 import TempPasswordIndicator from '../components/TempPasswordIndicator'
@@ -139,51 +139,6 @@ function buildGroups(people, sortMode, azDirection = 'asc') {
     return ia - ib
   })
   return orderedKeys.map(key => ({ key, label: labelFn(key), items: buckets.get(key) }))
-}
-
-// Same horizontal clamping as computeAnchoredPosition, but always rolls
-// down — for the Message/Call flyout, which should stay predictable
-// (always growing downward from the row you tapped) rather than flipping
-// direction depending on where that row happens to sit in the quick-action
-// menu itself.
-function computeFlyoutPosition(anchorRect, width) {
-  const vw = window.innerWidth
-  const left = Math.min(Math.max(8, anchorRect.right - width), vw - width - 8)
-  return { left, top: anchorRect.bottom + 6 }
-}
-
-// One row of the quick-action popover — a link when `href` is set (opens
-// the relevant app directly), otherwise a button (toggle an accordion
-// section, or show the missing-contact-detail toast). `indent` pushes
-// Mobile/WhatsApp rows in under their Message/Call header to read as
-// sub-items. `expandable` rows get a chevron matching the Account page's
-// convention — up when closed, rotated to point down when `expanded` — and
-// go bold while their section is open.
-function QuickActionRow({ icon, label, href, external, muted, expandable, expanded, disabled, title, onClick }) {
-  const className = `flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken disabled:cursor-not-allowed disabled:opacity-50 ${
-    muted ? 'font-normal text-ink-light' : expanded ? 'font-semibold text-ink' : 'font-medium text-ink'
-  }`
-  const content = (
-    <>
-      {icon && <span className="flex-shrink-0 text-ink-muted">{icon}</span>}
-      <span className="flex-1">{label}</span>
-      {expandable && (
-        <ChevronDownIcon className={`h-4 w-4 flex-shrink-0 text-ink-muted transition-transform ${expanded ? '' : 'rotate-180'}`} />
-      )}
-    </>
-  )
-  if (href) {
-    return (
-      <a href={href} target={external ? '_blank' : undefined} rel={external ? 'noopener noreferrer' : undefined} onClick={onClick} className={className}>
-        {content}
-      </a>
-    )
-  }
-  return (
-    <button type="button" onClick={onClick} disabled={disabled} title={title} className={className}>
-      {content}
-    </button>
-  )
 }
 
 // A single promoted contact action, inline in the desktop table's Actions
@@ -898,6 +853,16 @@ export default function StaffListPage() {
       setSecondaryAnchor(anchorEl.getBoundingClientRect())
       return section
     })
+  }
+  // A desktop row's Message / Call icon opens the same Mobile / WhatsApp
+  // flyout on its own, below the icon; pressing it again closes it.
+  function openContactFlyout(person, section, el) {
+    if (quickActionPerson?.id === person.id && secondaryFor === section && !quickActionAnchor) { closeQuickActions(); return }
+    setQuickActionPerson(person)
+    setQuickActionAnchor(null)
+    setSecondaryFor(section)
+    setSecondaryAnchor(el.getBoundingClientRect())
+    quickActionTriggerRef.current = el
   }
   function contactMissing(firstName) {
     setToast(`Sorry, we don't have this contact detail for ${firstName} yet.`)
@@ -1678,15 +1643,13 @@ export default function StaffListPage() {
                                       <div className="flex items-center justify-end gap-0.5">
                                         <RowActionIcon
                                           icon={<MessageIcon className="h-4 w-4" />}
-                                          title="Message (MS Teams)"
-                                          href={msTeamsChatHref(targetEmail)}
-                                          onMissing={() => contactMissing(firstNameForMissing)}
+                                          title="Message"
+                                          onClick={e => openContactFlyout(person, 'message', e.currentTarget)}
                                         />
                                         <RowActionIcon
                                           icon={<PhoneIcon className="h-4 w-4" />}
-                                          title="Call (MS Teams)"
-                                          href={msTeamsCallHref(targetEmail)}
-                                          onMissing={() => contactMissing(firstNameForMissing)}
+                                          title="Call"
+                                          onClick={e => openContactFlyout(person, 'call', e.currentTarget)}
                                         />
                                         <RowActionIcon
                                           icon={<EmailIcon className="h-4 w-4" />}
@@ -2015,42 +1978,18 @@ export default function StaffListPage() {
       })()}
 
       {/* ── Message/Call flyout — a separate popover cascading below
-           whichever row was tapped, always rolling down, its options in a
-           lighter color than the root menu's. Message adds a Teams "Chat"
-           option below Mobile/WhatsApp; Call adds a Teams "MS Teams" call
-           option below Mobile/WhatsApp — both keyed off the person's email
-           rather than phone, since that's what Teams itself resolves an
-           account by. ── */}
-      {quickActionPerson && secondaryFor && secondaryAnchor && (() => {
-        const firstName = quickActionPerson.name || quickActionPerson.surname || 'this person'
-        const telHref = phoneTelHref(quickActionPerson.phone)
-        const smsHref = phoneSmsHref(quickActionPerson.phone)
-        const waHref = phoneWhatsAppHref(quickActionPerson.phone)
-        const mobileHref = secondaryFor === 'message' ? smsHref : telHref
-        const targetEmail = emailById[quickActionPerson.id]
-        const teamsHref = secondaryFor === 'message' ? msTeamsChatHref(targetEmail) : msTeamsCallHref(targetEmail)
-        const teamsLabel = secondaryFor === 'message' ? 'Chat' : 'MS Teams'
-
-        function missing() {
-          return () => { contactMissing(firstName); closeQuickActions() }
-        }
-
-        const menuWidth = 176
-        const positionStyle = computeFlyoutPosition(secondaryAnchor, menuWidth)
-
-        return (
-          <div
-            ref={secondaryMenuRef}
-            role="menu"
-            style={{ ...positionStyle, width: menuWidth }}
-            className="fixed z-50 overflow-hidden rounded-xl border border-edge bg-canvas-raised py-1 shadow-raised"
-          >
-            <QuickActionRow label="Mobile" muted href={mobileHref} onClick={mobileHref ? closeQuickActions : missing()} />
-            <QuickActionRow label="WhatsApp" muted href={waHref} external onClick={waHref ? closeQuickActions : missing()} />
-            <QuickActionRow label={teamsLabel} muted href={teamsHref} external onClick={teamsHref ? closeQuickActions : missing()} />
-          </div>
-        )
-      })()}
+           whichever row (or desktop row icon) was tapped, always rolling
+           down: Mobile and WhatsApp. ── */}
+      {quickActionPerson && secondaryFor && secondaryAnchor && (
+        <ContactFlyout
+          section={secondaryFor}
+          anchor={secondaryAnchor}
+          phone={quickActionPerson.phone}
+          menuRef={secondaryMenuRef}
+          onPicked={closeQuickActions}
+          onMissing={() => { contactMissing(quickActionPerson.name || quickActionPerson.surname || 'this person'); closeQuickActions() }}
+        />
+      )}
 
       {/* ── Mobile row-tap detail sheet — profile summary, contact fields,
            and one-tap Message/Call/Email/View Account actions. Closes on

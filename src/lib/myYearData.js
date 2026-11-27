@@ -60,6 +60,18 @@ export async function fetchMyYear(profileId) {
     entries = res.data || []
   }
 
+  // Rotations (interns): the months My year shows. None on record, or
+  // none readable, means the whole year.
+  let rotations = []
+  try {
+    const res = await supabase.from('intern_rotations')
+      .select('id, rotation_type, subtype, start_date, end_date')
+      .eq('doctor_id', profileId)
+    rotations = res.error ? [] : (res.data || [])
+  } catch {
+    rotations = []
+  }
+
   const requests = leaveRes.data || []
   const nameIds = new Set()
   for (const e of entries) if (e.profile_id && e.profile_id !== profileId) nameIds.add(e.profile_id)
@@ -82,6 +94,7 @@ export async function fetchMyYear(profileId) {
     // this viewer can open; `publishedMonths` is the subset that counts.
     monthIds: Object.fromEntries(months.map(m => [`${m.year}-${pad(m.month)}`, m.id])),
     publishedMonths: new Set(counted.map(m => `${m.year}-${pad(m.month)}`)),
+    rotations,
   }
 }
 

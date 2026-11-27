@@ -19,7 +19,7 @@ import AccountRequestReviewDrawer from '../components/AccountRequestReviewDrawer
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { useSwipeToDismiss } from '../lib/useSwipeToDismiss'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
-import { formatPhoneDisplay, phoneTelHref, phoneSmsHref } from '../lib/phone'
+import { formatPhoneDisplay, phoneTelHref } from '../lib/phone'
 import { ContactFlyout, QuickActionRow } from '../components/ContactQuickMenu'
 import { formatShortDateRange, todayStr } from '../lib/dateRange'
 import { isTempPasswordExpired, tempPasswordExpiresAt, formatExpiryDate } from '../lib/tempPassword'
@@ -157,7 +157,7 @@ function buildGroups(people, sortMode, azDirection = 'asc') {
 // Email/View Account) — a generously-sized touch target (48px tall) with
 // visible pressed feedback, since three of these hand off to another app
 // entirely and a user should feel their tap land before that happens.
-function SheetActionButton({ icon, label, href, onClick, onMissing }) {
+function SheetActionButton({ icon, label, href, onClick, onMissing, expanded }) {
   // A filled tray rather than four empty outlines: on the sheet's own
   // `canvas-raised` an outline-only button is a rectangle of nothing, and
   // these four are the only thing on the sheet you can actually do.
@@ -174,8 +174,10 @@ function SheetActionButton({ icon, label, href, onClick, onMissing }) {
       type="button"
       title={label}
       aria-label={label}
-      onClick={e => { e.stopPropagation(); onClick ? onClick() : onMissing() }}
-      className={className}
+      aria-haspopup={expanded !== undefined ? 'menu' : undefined}
+      aria-expanded={expanded}
+      onClick={e => { e.stopPropagation(); onClick ? onClick(e) : onMissing() }}
+      className={`${className} ${expanded ? 'border-accent/40 bg-accent-tint text-accent' : ''}`}
     >
       {icon}
     </button>
@@ -457,9 +459,15 @@ export default function StaffListPage() {
   // actions) instead of navigating straight to the account page — long
   // press/kebab still open the existing quick-action popover below.
   const [detailSheetPerson, setDetailSheetPerson] = useState(null)
+  // The sheet's Message / Call flyout: { section, anchor } or null.
+  const [sheetFlyout, setSheetFlyout] = useState(null)
   const detailSheetRef = useRef(null)
-  useDismissablePopover(!!detailSheetPerson, () => setDetailSheetPerson(null), detailSheetRef)
-  const detailSheetSwipe = useSwipeToDismiss(() => setDetailSheetPerson(null))
+  const closeDetailSheet = () => { setDetailSheetPerson(null); setSheetFlyout(null) }
+  function toggleSheetFlyout(section, el) {
+    setSheetFlyout(f => (f?.section === section ? null : { section, anchor: el.getBoundingClientRect() }))
+  }
+  useDismissablePopover(!!detailSheetPerson, closeDetailSheet, detailSheetRef)
+  const detailSheetSwipe = useSwipeToDismiss(closeDetailSheet)
 
   // Long-press (touch and hold) on a row also opens the quick-action menu,
   // alongside the existing kebab tap. `longPressFiredRef` suppresses the
@@ -500,6 +508,7 @@ export default function StaffListPage() {
     // rather than navigating straight to the account page; "View Account"
     // inside the sheet is the new path to that full page.
     setDetailSheetPerson(person)
+    setSheetFlyout(null)
   }
 
   // Reload on mount and again whenever `location.key` changes. While an
@@ -2069,34 +2078,43 @@ export default function StaffListPage() {
             </div>
 
             <div className="mt-4 flex gap-2">
+              {/* Message and Call open the quick-action menu's flyout:
+                  Mobile and WhatsApp. */}
               <SheetActionButton
                 icon={<MessageIcon className="h-5 w-5" />}
                 label="Message"
-                href={phoneSmsHref(person.phone)}
-                onClick={() => setDetailSheetPerson(null)}
-                onMissing={() => contactMissing(firstNameForMissing)}
+                expanded={sheetFlyout?.section === 'message'}
+                onClick={e => toggleSheetFlyout('message', e.currentTarget)}
               />
               <SheetActionButton
                 icon={<PhoneIcon className="h-5 w-5" />}
                 label="Call"
-                href={phoneTelHref(person.phone)}
-                onClick={() => setDetailSheetPerson(null)}
-                onMissing={() => contactMissing(firstNameForMissing)}
+                expanded={sheetFlyout?.section === 'call'}
+                onClick={e => toggleSheetFlyout('call', e.currentTarget)}
               />
               <SheetActionButton
                 icon={<EmailIcon className="h-5 w-5" />}
                 label="Email"
                 href={targetEmail && person.email_verified ? `mailto:${targetEmail}` : null}
-                onClick={() => setDetailSheetPerson(null)}
+                onClick={closeDetailSheet}
                 onMissing={() => contactMissing(firstNameForMissing)}
               />
               <SheetActionButton
                 icon={<Eye className="h-5 w-5" />}
                 label="View Account"
-                onClick={() => { setDetailSheetPerson(null); navigate(`/account/${person.id}`) }}
+                onClick={() => { closeDetailSheet(); navigate(`/account/${person.id}`) }}
               />
             </div>
           </div>
+          {sheetFlyout && (
+            <ContactFlyout
+              section={sheetFlyout.section}
+              anchor={sheetFlyout.anchor}
+              phone={person.phone}
+              onPicked={closeDetailSheet}
+              onMissing={() => { contactMissing(firstNameForMissing); setSheetFlyout(null) }}
+            />
+          )}
           </>
         )
       })()}

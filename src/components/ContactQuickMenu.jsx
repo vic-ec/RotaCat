@@ -10,11 +10,16 @@ import { phoneSmsHref, phoneTelHref, phoneWhatsAppHref } from '../lib/phone'
 // each open a small flyout below the row tapped, with Mobile and WhatsApp;
 // Mail goes straight to the mail client.
 
-// Same horizontal clamping as computeAnchoredPosition, but always rolls
-// down, so the flyout grows predictably from the row you tapped.
+// Same horizontal clamping as computeAnchoredPosition. It rolls down from
+// the row you tapped, or up when that row sits too near the bottom of the
+// screen for it to fit (the Staff list sheet's Message / Call buttons).
+const FLYOUT_HEIGHT = 112
 function computeFlyoutPosition(anchorRect, width) {
   const vw = window.innerWidth
   const left = Math.min(Math.max(8, anchorRect.right - width), vw - width - 8)
+  if (anchorRect.bottom + 6 + FLYOUT_HEIGHT > window.innerHeight - 8) {
+    return { left, bottom: window.innerHeight - anchorRect.top + 6 }
+  }
   return { left, top: anchorRect.bottom + 6 }
 }
 
@@ -66,7 +71,7 @@ export function ContactFlyout({ section, anchor, phone, menuRef, onPicked, onMis
       role="menu"
       aria-label={section === 'message' ? 'Message' : 'Call'}
       style={{ ...computeFlyoutPosition(anchor, width), width }}
-      className="fixed z-50 overflow-hidden rounded-xl border border-edge bg-canvas-raised py-1 shadow-raised"
+      className="fixed z-[55] overflow-hidden rounded-xl border border-edge bg-canvas-raised py-1 shadow-raised"
     >
       <QuickActionRow icon={<Smartphone className="h-[18px] w-[18px]" />} label="Mobile" muted {...row(mobileHref)} />
       <QuickActionRow icon={<WhatsAppIcon className="h-[18px] w-[18px]" />} label="WhatsApp" muted {...row(waHref, { external: true })} />

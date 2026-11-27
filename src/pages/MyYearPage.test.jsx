@@ -131,7 +131,8 @@ describe('MyYearPage', () => {
     await userEvent.click(screen.getByRole('button', { name: '2 Nov' }))
     const card = screen.getByTestId('selected-day-card')
     expect(card.textContent).toMatch(/Monday, 2 Nov 2026/)
-    expect(card.textContent).toMatch(/Not on leave/)
+    // A rostered day shows its shift only: no "Not on leave" line.
+    expect(within(card).queryByTestId('day-leave')).not.toBeInTheDocument()
     expect(within(card).getByTestId('day-shift').textContent).toMatch(/^Rostered shift08h00/)
     // The roster opens on that day, marked as opened from My year.
     expect(within(card).getByRole('link', { name: /Open this day on the roster/ })).toHaveAttribute('href', '/roster/m11?date=2026-11-02&entry=e1&mark=1')

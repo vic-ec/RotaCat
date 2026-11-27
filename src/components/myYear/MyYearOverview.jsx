@@ -5,7 +5,7 @@ import { useIsDesktop } from '../../lib/useIsDesktop'
 import { formatWeekdayDate, formatShortDateRange, todayStr } from '../../lib/dateRange'
 import { LEAVE_TYPE_LABELS } from '../../lib/leaveRequests'
 import { leaveDayCountLabel } from '../../lib/leaveCard'
-import { coverKind, shiftStartLabel } from '../../lib/myYear'
+import { coverKind, rotationMonths, shiftStartLabel } from '../../lib/myYear'
 import { rosterLinkForDate } from '../../lib/myYearData'
 import { leaveDestination } from '../../lib/myYearLinks'
 import LeaveCodeBox from './LeaveCodeBox'
@@ -86,8 +86,8 @@ const COVER_LINE = { not_covered: 'Shift not covered', open_locum: 'Open locum s
 
 const linkClass = 'inline-flex min-h-[44px] items-center text-sm font-medium text-accent hover:text-accent-dark md:min-h-0 md:pt-1'
 
-// What the selected day is about, in up to three columns (Leave · Rostered
-// shift · Captured), each with its own link directly under it. On a phone
+// What the selected day is about: its leave or its rostered shift (both
+// only when both are on record), each with its own link directly under it. On a phone
 // the same columns stack as lines with the link at the right.
 function DayDetails({ day, data, profileId, isAdmin, own = false, compact = false }) {
   const teamLeaveFits = useIsDesktop(1024)
@@ -105,7 +105,7 @@ function DayDetails({ day, data, profileId, isAdmin, own = false, compact = fals
     ? (shiftLabel.includes(shiftStart) ? shiftLabel : `${shiftLabel} · ${shiftStart}`)
     : day.onCall ? 'On call' : published ? 'No shift' : 'No published roster'
   const shiftSub = kind ? `Cover: ${COVER_LINE[kind] || coverName}`
-    : shift && day.onCall ? 'On call' : !shift && leave ? 'On leave' : ''
+    : shift && day.onCall ? 'On call' : ''
   const rosterTo = rosterLinkForDate(data.monthIds, day.date, shift ? { entry: shift.id, mark: true } : { doctor: profileId, mark: true })
   // Admins open the leave on Team Leave's Matrix (their row, that period);
   // the Matrix needs a wide screen, and doctors don't have Team Leave, so
@@ -117,7 +117,17 @@ function DayDetails({ day, data, profileId, isAdmin, own = false, compact = fals
   const leaveTo = dest && { to: dest.to, label: `Open in ${dest.label} ›`, short: `${dest.label} ›` }
   const capturedBy = leave?.submitted_by && leave.submitted_by !== leave.profile_id ? data.names[leave.submitted_by] : null
 
-  const columns = [
+  // One or the other, as a person on leave isn't rostered and vice versa:
+  // leave alone, the shift alone, or both only when both are on record (a
+  // rostered shift they came off, e.g. sick). Neither: one line saying so.
+  const offLine = {
+    key: 'off',
+    label: 'Day',
+    value: day.onCall ? 'On call' : published ? 'Off' : 'No leave',
+    sub: day.onCall ? 'No leave or rostered shift' : published ? 'No leave and no rostered shift' : 'No published roster for this month yet',
+    link: rosterTo ? { to: rosterTo, label: 'Open this day on the roster ›', short: 'Roster ›' } : null,
+  }
+  const allColumns = [
     {
       key: 'leave',
       label: 'Leave',
@@ -137,6 +147,10 @@ function DayDetails({ day, data, profileId, isAdmin, own = false, compact = fals
       link: rosterTo ? { to: rosterTo, label: 'Open this day on the roster ›', short: 'Roster ›' } : null,
     },
   ]
+  const columns = leave && shift ? allColumns
+    : leave ? allColumns.filter(c => c.key === 'leave')
+      : shift ? allColumns.filter(c => c.key === 'shift')
+        : [offLine]
 
   if (compact) {
     return (
@@ -232,6 +246,7 @@ export default function MyYearOverview({
         <div className="card p-4">
           <YearGlance
             days={days}
+            months={rotationMonths(data.rotations, year)}
             year={year}
             selectedDate={isDesktop ? selectedDate : sheetDate}
             openOn={todayStr()}

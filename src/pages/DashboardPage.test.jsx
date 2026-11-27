@@ -204,7 +204,7 @@ describe('DashboardPage', () => {
     expect(screen.queryByText('Mon 7 Sep')).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: /\+1 more upcoming/ })).toHaveAttribute('href', '/leave?tab=my-leave')
     // The next leave opens its planner on its first day's month.
-    expect(screen.getByTestId('next-leave-link')).toHaveAttribute('href', '/leave?tab=planners&sub=annual&month=2026-08&highlight=lr1')
+    expect(screen.getByTestId('next-leave-link')).toHaveAttribute('href', '/leave?tab=planners&sub=annual&month=2026-08&highlight=2026-08-10')
     expect(screen.getByText('My leave')).toBeInTheDocument()
     // Pending counts the request, booked counts only approved days
     expect(screen.getByText('3 of 22 booked · 1 pending')).toBeInTheDocument()

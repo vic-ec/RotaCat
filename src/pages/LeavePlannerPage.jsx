@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { Navigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
-import { useScrollReveal } from '../lib/useScrollReveal'
 import { UserPlus } from 'lucide-react'
 import PageTabs from '../components/PageTabs'
 import Modal from '../components/Modal'
@@ -63,10 +62,6 @@ const PLANNER_BACK_LABELS = { annual: 'Annual planner', special: 'Special planne
 export default function LeavePlannerPage() {
   const { canSubmitLeave, isAdmin, isLocum, isClerk } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
-  // Hide-on-scroll-down/reveal-on-scroll-up for the Planners sub-nav below
-  // (mobile only — see its md:hidden gating) — called unconditionally here,
-  // ahead of the locum early-return, per the rules of hooks.
-  const subnavVisible = useScrollReveal()
   // Same count AppLayout's own Planners nav badge fetches (see NavBadge
   // there), independently — this page and the app shell don't share state,
   // so each fetches its own copy rather than introducing shared context
@@ -278,22 +273,14 @@ export default function LeavePlannerPage() {
       <PageTabs tabs={tabs} active={tab} onChange={setTab} ariaLabel="Leave" />
 
       {tab === 'planners' && plannerTabs.length > 1 && (
-        <div
-          className={`mt-4 sticky top-0 z-10 bg-canvas transition-[transform,opacity] duration-200 md:static md:translate-y-0 md:opacity-100 ${
-            subnavVisible ? 'translate-y-0 opacity-100' : '-translate-y-2 opacity-0 pointer-events-none'
-          }`}
-        >
+        <div className="mt-4">
           <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">Planners</h2>
           <PageTabs tabs={plannerTabs} active={plannerTab} onChange={setPlannerTab} ariaLabel="Planners" size="sub" />
         </div>
       )}
 
       {tab === 'team' && teamTabs.length > 1 && (
-        <div
-          className={`mt-4 sticky top-0 z-10 bg-canvas transition-[transform,opacity] duration-200 md:static md:translate-y-0 md:opacity-100 ${
-            subnavVisible ? 'translate-y-0 opacity-100' : '-translate-y-2 opacity-0 pointer-events-none'
-          }`}
-        >
+        <div className="mt-4">
           <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">Team Leave</h2>
           <PageTabs tabs={teamTabs} active={teamTab} onChange={setTeamTab} ariaLabel="Team Leave" size="sub" />
         </div>

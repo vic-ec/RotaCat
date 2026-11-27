@@ -484,6 +484,21 @@ export function yearWeekColumns(days) {
   return columns
 }
 
+// The months (0-11) of `year` My year shows for someone: those their
+// rotations touch (an intern on EC from January to April sees four), or
+// null for the whole year — staff with no rotations on record (open
+// contracts), or none touching this year.
+export function rotationMonths(rotations, year) {
+  if (!rotations || rotations.length === 0) return null
+  const months = []
+  for (let m = 1; m <= 12; m += 1) {
+    const start = `${year}-${String(m).padStart(2, '0')}-01`
+    const end = `${year}-${String(m).padStart(2, '0')}-31`
+    if (rotations.some(r => r.start_date <= end && (r.end_date == null || r.end_date >= start))) months.push(m - 1)
+  }
+  return months.length ? months : null
+}
+
 export function daysByMonth(days) {
   const months = Array.from({ length: 12 }, () => [])
   for (const day of days) months[Number(day.date.slice(5, 7)) - 1].push(day)

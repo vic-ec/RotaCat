@@ -5,8 +5,8 @@ const req = (over = {}) => ({ id: 'r1', profile_id: 'p1', leave_type: 'annual', 
 
 describe('leaveDestination', () => {
   it('annual and special leave open their planner month', () => {
-    expect(leaveDestination(req(), { own: true })).toMatchObject({ label: 'Annual planner', kind: 'planner', to: expect.stringContaining('sub=annual&month=2026-12&highlight=r1') })
-    expect(leaveDestination(req({ leave_type: 'study' }), { own: true })).toMatchObject({ label: 'Special planner', kind: 'planner' })
+    expect(leaveDestination(req(), { own: true })).toMatchObject({ label: 'Annual planner', kind: 'planner', to: expect.stringContaining('sub=annual&month=2026-12&highlight=2026-12-07') })
+    expect(leaveDestination(req({ leave_type: 'study' }), { own: true })).toMatchObject({ label: 'Special planner', kind: 'planner', to: expect.stringContaining('smonth=12&sday=2026-12-07') })
   })
 
   it('sick leave opens the request itself, never a planner', () => {

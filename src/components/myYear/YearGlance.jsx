@@ -100,6 +100,19 @@ function Legend({ days, showLate }) {
 
 const DOW = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
+// Days split wherever a date is skipped.
+function contiguousRuns(days) {
+  const runs = []
+  let prev = null
+  for (const day of days) {
+    const t = Date.parse(`${day.date}T00:00:00Z`)
+    if (prev === null || t - prev !== 86400000) runs.push([])
+    runs[runs.length - 1].push(day)
+    prev = t
+  }
+  return runs
+}
+
 // A month opened on a phone: a Monday-first calendar with cells big enough
 // to tap (about 44px), each day in the grid's own colours, its number on it.
 function MonthCalendar({ year, monthIndex, monthDays, selectedDate, onSelect, showLate }) {
@@ -156,8 +169,14 @@ function MonthCalendar({ year, monthIndex, monthDays, selectedDate, onSelect, sh
 // starts on the selected day's month.
 // `openOn`: the date whose month starts open on a phone (today), else the
 // selected day's.
-export default function YearGlance({ days, year, selectedDate, onSelect, showLate = false, openOn = null }) {
+// `months`: the months (0-11) to show — an intern's rotation months — or
+// null for the whole year. The current month's name is in the accent, as
+// on the Rotations table.
+export default function YearGlance({ days: allDays, year, selectedDate, onSelect, showLate = false, openOn = null, months: shownMonths = null }) {
   const isDesktop = useIsDesktop(768)
+  const today = todayStr()
+  const currentMonth = today.startsWith(`${year}-`) ? Number(today.slice(5, 7)) - 1 : null
+  const days = shownMonths ? allDays.filter(d => shownMonths.includes(Number(d.date.slice(5, 7)) - 1)) : allDays
   const startDate = openOn || selectedDate
   const startMonth = startDate && startDate.startsWith(`${year}-`) ? Number(startDate.slice(5, 7)) - 1 : null
   const [openMonth, setOpenMonth] = useState(startMonth)
@@ -168,6 +187,7 @@ export default function YearGlance({ days, year, selectedDate, onSelect, showLat
       <div data-testid="year-glance-months">
         <ul className="divide-y divide-slate-line">
           {months.map((monthDays, i) => {
+            if (shownMonths && !shownMonths.includes(i)) return null
             const leaveDays = monthDays.filter(d => d.leave)
             const summary = leaveDays.length === 0 ? 'no leave' : `${leaveDays.length} day${leaveDays.length === 1 ? '' : 's'} on leave`
             const open = openMonth === i
@@ -180,7 +200,7 @@ export default function YearGlance({ days, year, selectedDate, onSelect, showLat
                   aria-label={`${MONTH_NAMES[i]}: ${summary}. ${open ? 'Close' : 'Open'} the month to pick a day`}
                   className={`-mx-2 flex min-h-[44px] w-[calc(100%+1rem)] items-center gap-2 rounded-md px-2 py-1.5 text-left active:bg-canvas-sunken ${open ? 'bg-accent-tint' : ''}`}
                 >
-                  <span className="w-8 flex-shrink-0 text-xs font-semibold text-ink">{MONTH_ABBR[i]}</span>
+                  <span className={`w-8 flex-shrink-0 text-xs ${i === currentMonth ? 'font-bold text-accent' : 'font-semibold text-ink'}`} data-current-month={i === currentMonth || undefined}>{MONTH_ABBR[i]}</span>
                   <span className="grid min-w-0 flex-1 gap-[2px]" style={{ gridTemplateColumns: 'repeat(31, minmax(0, 1fr))' }}>
                     {monthDays.map(day => <Square key={day.date} day={day} showLate={showLate} selected={day.date === selectedDate} />)}
                   </span>
@@ -198,7 +218,10 @@ export default function YearGlance({ days, year, selectedDate, onSelect, showLat
     )
   }
 
-  const columns = yearWeekColumns(days)
+  // Rotation months can leave a gap (EC, then elsewhere, then EC again):
+  // each unbroken run of days gets its own week columns, so a week never
+  // mixes days from either side of the gap.
+  const columns = contiguousRuns(days).flatMap(run => yearWeekColumns(run))
   const template = { gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))` }
   return (
     <div data-testid="year-glance-weeks">
@@ -212,7 +235,8 @@ export default function YearGlance({ days, year, selectedDate, onSelect, showLat
           <div className="mb-1 grid h-4 gap-[3px] text-[10px] font-medium leading-none text-ink-muted" style={template} aria-hidden="true">
             {columns.map((column, i) => {
               const first = column.find(d => d && d.date.endsWith('-01'))
-              return <span key={i} className="overflow-visible whitespace-nowrap">{first ? MONTH_ABBR[Number(first.date.slice(5, 7)) - 1] : ''}</span>
+              const m = first ? Number(first.date.slice(5, 7)) - 1 : null
+              return <span key={i} className={`overflow-visible whitespace-nowrap ${m !== null && m === currentMonth ? 'font-bold text-accent' : ''}`} data-current-month={(m !== null && m === currentMonth) || undefined}>{m !== null ? MONTH_ABBR[m] : ''}</span>
             })}
           </div>
           <div className="grid gap-[3px]" style={template}>

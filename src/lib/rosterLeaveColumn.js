@@ -13,7 +13,7 @@ import { leaveTypeCode } from './leaveRequests'
 
 const NOT_AWAY = new Set(['weekend_exception'])
 
-// { [date]: { leave: [{ profileId, name, code }], course: [...] } } for each
+// { [date]: { leave: [{ profileId, name, type, code }], course: [...] } } for each
 // date in `dates`, names sorted. `nameOf(profileId)` returns the short
 // roster name, or a falsy value to leave someone out (not on this roster's
 // staff list).
@@ -30,7 +30,7 @@ export function leaveByDate(leaveByProfile, dates, nameOf) {
         if (date < from || date > to) continue
         const list = out[date][bucket]
         // One line per person per column, even with overlapping ranges.
-        if (!list.some(p => p.profileId === profileId)) list.push({ profileId, name, code: type ? leaveTypeCode(type) : '' })
+        if (!list.some(p => p.profileId === profileId)) list.push({ profileId, name, type: type || null, code: type ? leaveTypeCode(type) : '' })
       }
     }
   }

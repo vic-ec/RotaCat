@@ -3,6 +3,7 @@ import {
   Presentation, HeartPulse, Baby, TimerReset, Calendar1, Coffee,
 } from 'lucide-react'
 import { leaveGroupInk, leaveTypeGroupKey } from '../lib/leaveMatrix'
+import { leaveTypeCode, LEAVE_TYPE_LABELS } from '../lib/leaveRequests'
 
 // One icon per leave type, in its group's colour (LEAVE_GROUP_COLOR). The
 // icon says which type, the colour which family — and it is what tells a
@@ -65,6 +66,27 @@ export default function LeaveTypeIcon({ leaveType, groupKey, variant = 'box', si
       }}
     >
       <Icon className={GLYPH[size]} />
+    </span>
+  )
+}
+
+// A leave type as a filled pill: its group's colour, its icon and its short
+// code ("SK"), for a dense grid (the roster's Leave and Course columns)
+// where a name sits beside it. The fill is the group's ink (lifted at night)
+// and the text the raised card colour, so it reads on both themes.
+export function LeaveTypePill({ leaveType, className = '' }) {
+  const group = leaveTypeGroupKey(leaveType)
+  const Icon = (leaveType && TYPE_ICON[leaveType]) || GROUP_ICON[group] || Coffee
+  const code = leaveTypeCode(leaveType)
+  return (
+    <span
+      data-testid="leave-type-pill"
+      title={LEAVE_TYPE_LABELS[leaveType] || undefined}
+      className={`inline-flex flex-shrink-0 items-center gap-0.5 rounded-full px-1.5 py-px text-[0.75em] font-bold leading-tight ${className}`}
+      style={{ backgroundColor: leaveGroupInk(group), color: 'rgb(var(--color-canvas-raised))' }}
+    >
+      <Icon className="h-[1em] w-[1em] flex-shrink-0" aria-hidden="true" />
+      {code}
     </span>
   )
 }

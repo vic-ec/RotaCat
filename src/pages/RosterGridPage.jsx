@@ -51,6 +51,7 @@ import { useSwatch } from '../lib/useSwatch'
 import { useIsDesktop } from '../lib/useIsDesktop'
 import { adjustedTimesLabel } from '../lib/shiftTimes'
 import { leaveByDate, awaySummary } from '../lib/rosterLeaveColumn'
+import { LeaveTypePill } from '../components/LeaveTypeIcon'
 
 // Two ways to read the same month. Rows is the day-by-day grid the roster
 // has always been; Lanes turns it ninety degrees, a row per doctor. Both
@@ -1617,9 +1618,11 @@ export default function RosterGridPage() {
                           {showHeader && <div className={headerBand}>{label}</div>}
                           <div className="space-y-0.5 px-1.5 py-1 text-[0.834em]">
                             {away[key].map(p => (
-                              <div key={p.profileId} className="flex items-baseline gap-1 truncate text-ink-light">
+                              // The type as a filled pill (icon and code) first, so
+                              // a long surname truncates and the type never does.
+                              <div key={p.profileId} className="flex min-w-0 items-center gap-1 text-ink-light">
+                                {p.type && <LeaveTypePill leaveType={p.type} />}
                                 <span className="truncate">{p.name}</span>
-                                {p.code && <span className="flex-shrink-0 text-[0.85em] font-semibold text-ink-muted">{p.code}</span>}
                               </div>
                             ))}
                           </div>

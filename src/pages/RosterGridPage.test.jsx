@@ -222,7 +222,10 @@ describe('RosterGridPage day blocks', () => {
   it('shows who is away in Leave and Course columns, read from approved leave', async () => {
     renderPage()
     await screen.findByText('August 2026')
-    expect(within(rowFor('2026-08-20')).getByTestId('leave-cell')).toHaveTextContent('AndersonSK')
+    // The type as a filled pill (icon and code), then the name.
+    const leaveCell = within(rowFor('2026-08-20')).getByTestId('leave-cell')
+    expect(leaveCell).toHaveTextContent('SKAnderson')
+    expect(within(leaveCell).getByTestId('leave-type-pill')).toHaveAttribute('title', 'Sick leave')
     expect(within(rowFor('2026-08-20')).getByTestId('course-cell')).toHaveTextContent('')
     expect(within(rowFor('2026-08-21')).getByTestId('leave-cell')).toHaveTextContent('')
     // A weekend row lines its Leave column up with a weekday's.

@@ -1,15 +1,16 @@
 // Where a leave request opens from the "My year" page: a pending request
 // in the Requests list, annual leave on the Annual planner's month, any
-// other type on the Special planner's month.
+// other type on the Special planner's month. A planner opens on the
+// request's first day, selected (its day panel or sheet open).
 export function requestLink(request) {
   const month = request.date_from.slice(0, 7)
   if (request.status === 'pending') return { label: 'Request', to: '/leave?tab=requests' }
   if (request.leave_type === 'annual') {
-    return { label: 'Annual planner', to: `/leave?tab=planners&sub=annual&month=${month}&highlight=${request.id}` }
+    return { label: 'Annual planner', to: `/leave?tab=planners&sub=annual&month=${month}&highlight=${request.date_from}` }
   }
   return {
     label: 'Special planner',
-    to: `/leave?tab=planners&sub=special&syear=${month.slice(0, 4)}&sview=workspace&smonth=${Number(month.slice(5, 7))}`,
+    to: `/leave?tab=planners&sub=special&syear=${month.slice(0, 4)}&sview=workspace&smonth=${Number(month.slice(5, 7))}&sday=${request.date_from}`,
   }
 }
 

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ChevronsUpDown, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import Toolbar from './Toolbar'
 import FloatingActionMenu from './FloatingActionMenu'
 import SectionBar from './SectionBar'
@@ -55,7 +55,6 @@ export default function WhosAwayList({ requests, leading = null, onCapture, cont
     })
   }, [requests, filters, q])
   const groups = groupWhosAway(filtered, today)
-  const allCollapsed = groups.every(g => collapsed[g.key])
 
   const setDim = (key, next) => setFilters(f => ({ ...f, [key]: next }))
   const filterGroups = [
@@ -91,18 +90,6 @@ export default function WhosAwayList({ requests, leading = null, onCapture, cont
       />
 
       <div className="mt-4 space-y-3 md:mt-5 lg:max-w-4xl">
-        {/* One tap to open or fold every section; it says "Expand all"
-            whenever every section is folded. */}
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={() => setCollapsed(Object.fromEntries(groups.map(g => [g.key, !allCollapsed])))}
-            className="inline-flex items-center gap-1 text-xs font-medium text-ink-light hover:text-ink"
-          >
-            <ChevronsUpDown className="h-3.5 w-3.5" aria-hidden="true" />
-            {allCollapsed ? 'Expand all' : 'Collapse all'}
-          </button>
-        </div>
         {groups.map(g => {
           const isCollapsed = Boolean(collapsed[g.key])
           const label = g.key === 'today' ? `${g.label} · ${shortWeekdayDate(today)}` : g.label

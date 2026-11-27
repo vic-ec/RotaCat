@@ -29,3 +29,20 @@ describe('YearGlance on a phone', () => {
     expect(screen.getAllByTestId('month-calendar')).toHaveLength(1)
   })
 })
+
+describe('YearGlance: the current month', () => {
+  it('names the current month in the accent', () => {
+    window.matchMedia = vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })
+    const now = new Date()
+    const year = now.getFullYear()
+    const days = []
+    for (let d = new Date(year, 0, 1); d.getFullYear() === year; d.setDate(d.getDate() + 1)) {
+      days.push({ date: `${year}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`, weekend: false, leave: null, leaveGroup: null })
+    }
+    const { container } = render(<MemoryRouter><YearGlance days={days} year={year} selectedDate={null} onSelect={vi.fn()} /></MemoryRouter>)
+    const marked = container.querySelectorAll('[data-current-month]')
+    expect(marked).toHaveLength(1)
+    expect(marked[0]).toHaveClass('text-accent')
+  })
+})
+

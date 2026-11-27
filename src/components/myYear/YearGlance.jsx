@@ -156,8 +156,11 @@ function MonthCalendar({ year, monthIndex, monthDays, selectedDate, onSelect, sh
 // starts on the selected day's month.
 // `openOn`: the date whose month starts open on a phone (today), else the
 // selected day's.
+// The current month's name is in the accent, as on the Rotations table.
 export default function YearGlance({ days, year, selectedDate, onSelect, showLate = false, openOn = null }) {
   const isDesktop = useIsDesktop(768)
+  const today = todayStr()
+  const currentMonth = today.startsWith(`${year}-`) ? Number(today.slice(5, 7)) - 1 : null
   const startDate = openOn || selectedDate
   const startMonth = startDate && startDate.startsWith(`${year}-`) ? Number(startDate.slice(5, 7)) - 1 : null
   const [openMonth, setOpenMonth] = useState(startMonth)
@@ -180,7 +183,7 @@ export default function YearGlance({ days, year, selectedDate, onSelect, showLat
                   aria-label={`${MONTH_NAMES[i]}: ${summary}. ${open ? 'Close' : 'Open'} the month to pick a day`}
                   className={`-mx-2 flex min-h-[44px] w-[calc(100%+1rem)] items-center gap-2 rounded-md px-2 py-1.5 text-left active:bg-canvas-sunken ${open ? 'bg-accent-tint' : ''}`}
                 >
-                  <span className="w-8 flex-shrink-0 text-xs font-semibold text-ink">{MONTH_ABBR[i]}</span>
+                  <span className={`w-8 flex-shrink-0 text-xs ${i === currentMonth ? 'font-bold text-accent' : 'font-semibold text-ink'}`} data-current-month={i === currentMonth || undefined}>{MONTH_ABBR[i]}</span>
                   <span className="grid min-w-0 flex-1 gap-[2px]" style={{ gridTemplateColumns: 'repeat(31, minmax(0, 1fr))' }}>
                     {monthDays.map(day => <Square key={day.date} day={day} showLate={showLate} selected={day.date === selectedDate} />)}
                   </span>
@@ -212,7 +215,8 @@ export default function YearGlance({ days, year, selectedDate, onSelect, showLat
           <div className="mb-1 grid h-4 gap-[3px] text-[10px] font-medium leading-none text-ink-muted" style={template} aria-hidden="true">
             {columns.map((column, i) => {
               const first = column.find(d => d && d.date.endsWith('-01'))
-              return <span key={i} className="overflow-visible whitespace-nowrap">{first ? MONTH_ABBR[Number(first.date.slice(5, 7)) - 1] : ''}</span>
+              const m = first ? Number(first.date.slice(5, 7)) - 1 : null
+              return <span key={i} className={`overflow-visible whitespace-nowrap ${m !== null && m === currentMonth ? 'font-bold text-accent' : ''}`} data-current-month={(m !== null && m === currentMonth) || undefined}>{m !== null ? MONTH_ABBR[m] : ''}</span>
             })}
           </div>
           <div className="grid gap-[3px]" style={template}>

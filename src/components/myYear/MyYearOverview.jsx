@@ -5,7 +5,7 @@ import { useIsDesktop } from '../../lib/useIsDesktop'
 import { formatWeekdayDate, formatShortDateRange, todayStr } from '../../lib/dateRange'
 import { LEAVE_TYPE_LABELS } from '../../lib/leaveRequests'
 import { leaveDayCountLabel } from '../../lib/leaveCard'
-import { coverKind, rotationMonths, shiftStartLabel } from '../../lib/myYear'
+import { coverKind, shiftStartLabel } from '../../lib/myYear'
 import { rosterLinkForDate } from '../../lib/myYearData'
 import { leaveDestination } from '../../lib/myYearLinks'
 import LeaveCodeBox from './LeaveCodeBox'
@@ -246,7 +246,6 @@ export default function MyYearOverview({
         <div className="card p-4">
           <YearGlance
             days={days}
-            months={rotationMonths(data.rotations, year)}
             year={year}
             selectedDate={isDesktop ? selectedDate : sheetDate}
             openOn={todayStr()}

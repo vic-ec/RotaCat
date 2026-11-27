@@ -100,19 +100,6 @@ function Legend({ days, showLate }) {
 
 const DOW = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
-// Days split wherever a date is skipped.
-function contiguousRuns(days) {
-  const runs = []
-  let prev = null
-  for (const day of days) {
-    const t = Date.parse(`${day.date}T00:00:00Z`)
-    if (prev === null || t - prev !== 86400000) runs.push([])
-    runs[runs.length - 1].push(day)
-    prev = t
-  }
-  return runs
-}
-
 // A month opened on a phone: a Monday-first calendar with cells big enough
 // to tap (about 44px), each day in the grid's own colours, its number on it.
 function MonthCalendar({ year, monthIndex, monthDays, selectedDate, onSelect, showLate }) {
@@ -169,14 +156,11 @@ function MonthCalendar({ year, monthIndex, monthDays, selectedDate, onSelect, sh
 // starts on the selected day's month.
 // `openOn`: the date whose month starts open on a phone (today), else the
 // selected day's.
-// `months`: the months (0-11) to show — an intern's rotation months — or
-// null for the whole year. The current month's name is in the accent, as
-// on the Rotations table.
-export default function YearGlance({ days: allDays, year, selectedDate, onSelect, showLate = false, openOn = null, months: shownMonths = null }) {
+// The current month's name is in the accent, as on the Rotations table.
+export default function YearGlance({ days, year, selectedDate, onSelect, showLate = false, openOn = null }) {
   const isDesktop = useIsDesktop(768)
   const today = todayStr()
   const currentMonth = today.startsWith(`${year}-`) ? Number(today.slice(5, 7)) - 1 : null
-  const days = shownMonths ? allDays.filter(d => shownMonths.includes(Number(d.date.slice(5, 7)) - 1)) : allDays
   const startDate = openOn || selectedDate
   const startMonth = startDate && startDate.startsWith(`${year}-`) ? Number(startDate.slice(5, 7)) - 1 : null
   const [openMonth, setOpenMonth] = useState(startMonth)
@@ -187,7 +171,6 @@ export default function YearGlance({ days: allDays, year, selectedDate, onSelect
       <div data-testid="year-glance-months">
         <ul className="divide-y divide-slate-line">
           {months.map((monthDays, i) => {
-            if (shownMonths && !shownMonths.includes(i)) return null
             const leaveDays = monthDays.filter(d => d.leave)
             const summary = leaveDays.length === 0 ? 'no leave' : `${leaveDays.length} day${leaveDays.length === 1 ? '' : 's'} on leave`
             const open = openMonth === i
@@ -218,10 +201,7 @@ export default function YearGlance({ days: allDays, year, selectedDate, onSelect
     )
   }
 
-  // Rotation months can leave a gap (EC, then elsewhere, then EC again):
-  // each unbroken run of days gets its own week columns, so a week never
-  // mixes days from either side of the gap.
-  const columns = contiguousRuns(days).flatMap(run => yearWeekColumns(run))
+  const columns = yearWeekColumns(days)
   const template = { gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))` }
   return (
     <div data-testid="year-glance-weeks">

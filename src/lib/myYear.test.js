@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   readMyYearSettings, leaveBucket, leaveDaysByMonth, buildMonthRow, leaveTotals, breakRanges, breakSummary,
   lieuEarnedRows, lieuBalance, lieuBalancesByProfile, shiftGroupOf, shiftCounts, onCallDates, leaveRecord,
-  leaveRecordCounts, coverForRequest, coverSummary, buildYearDays, yearWeekColumns, daysByMonth, rotationMonths,
+  leaveRecordCounts, coverForRequest, coverSummary, buildYearDays, yearWeekColumns, daysByMonth,
 } from './myYear'
 
 let seq = 0
@@ -294,14 +294,3 @@ describe('year at a glance', () => {
     expect(daysByMonth(days).map(m => m.length)).toEqual([31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31])
   })
 })
-
-describe('rotationMonths', () => {
-  it('the months a rotation touches; the whole year (null) with none', () => {
-    expect(rotationMonths([], 2026)).toBeNull()
-    expect(rotationMonths([{ start_date: '2026-01-05', end_date: '2026-04-30' }], 2026)).toEqual([0, 1, 2, 3])
-    expect(rotationMonths([{ start_date: '2026-01-01', end_date: '2026-02-28' }, { start_date: '2026-11-01', end_date: null }], 2026)).toEqual([0, 1, 10, 11])
-    // None in this year: the whole year.
-    expect(rotationMonths([{ start_date: '2025-01-01', end_date: '2025-04-30' }], 2026)).toBeNull()
-  })
-})
-

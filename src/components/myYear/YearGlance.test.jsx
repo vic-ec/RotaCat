@@ -30,21 +30,7 @@ describe('YearGlance on a phone', () => {
   })
 })
 
-describe('YearGlance: rotation months and the current month', () => {
-  it('shows only the months given (an intern\'s rotation), on a phone and a desktop', () => {
-    window.matchMedia = vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })
-    const { unmount } = render(<MemoryRouter><YearGlance days={days2026()} year={2026} selectedDate={null} onSelect={vi.fn()} months={[0, 1, 2, 3]} /></MemoryRouter>)
-    expect(screen.getByRole('button', { name: /^January:/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^April:/ })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /^May:/ })).not.toBeInTheDocument()
-    unmount()
-    window.matchMedia = vi.fn().mockReturnValue({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })
-    render(<MemoryRouter><YearGlance days={days2026()} year={2026} selectedDate={null} onSelect={vi.fn()} months={[0, 8]} /></MemoryRouter>)
-    expect(screen.getByRole('button', { name: '31 Jan' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '1 Sep' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '1 Feb' })).not.toBeInTheDocument()
-  })
-
+describe('YearGlance: the current month', () => {
   it('names the current month in the accent', () => {
     window.matchMedia = vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })
     const now = new Date()

@@ -34,6 +34,15 @@ function open(entry, over = {}) {
 }
 const dialog = () => screen.getByRole('dialog')
 const option = name => within(dialog()).getByRole('radio', { name })
+// A choice's explainer, behind its (i): opened, and its text read.
+const hintOf = name => {
+  const row = option(name).closest('label').parentElement
+  fireEvent.click(within(row).getByRole('button', { name: /^About / }))
+  const pop = screen.getAllByRole('dialog').at(-1)
+  const text = pop.textContent
+  fireEvent.click(within(pop).getByRole('button', { name: 'Close' }))
+  return text
+}
 // Tick a choice and press Continue.
 async function choose(user, name) {
   await user.click(option(name))
@@ -261,7 +270,7 @@ describe('ShiftMenu — Put back', () => {
   it('a leave over several days asks: cancel all of it, or keep the other days', async () => {
     const user = userEvent.setup()
     const h = open(noCover, { leaveByProfile: { 'doc-a': [['2026-08-10', '2026-08-11', 'sick', 'leave-1']] }, cancelLeaveRequest: { id: 'leave-1', leave_type: 'sick', profiles: { name: 'Alice Anderson' } } })
-    expect(option(/Put Alice Anderson back on this shift/).closest('label')).toHaveTextContent(/sick leave runs Mon 10 Aug – Tue 11 Aug; you choose/)
+    expect(hintOf(/Put Alice Anderson back on this shift/)).toMatch(/sick leave runs Mon 10 Aug – Tue 11 Aug; you choose/)
     await choose(user, /Put Alice Anderson back on this shift/)
     expect(screen.getByText("Alice Anderson's sick leave runs Mon 10 Aug – Tue 11 Aug. Cancel all of it, or keep the other days?")).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Keep the other days' }))
@@ -271,7 +280,7 @@ describe('ShiftMenu — Put back', () => {
   it('a one-day leave is cancelled with the put-back, without asking', async () => {
     const user = userEvent.setup()
     const h = open(noCover, { leaveByProfile: { 'doc-a': [['2026-08-10', '2026-08-10', 'sick', 'leave-1']] }, cancelLeaveRequest: { id: 'leave-1', leave_type: 'sick', profiles: { name: 'Alice Anderson' } } })
-    expect(option(/Put Alice Anderson back on this shift/).closest('label')).toHaveTextContent(/sick leave for that day is cancelled too/)
+    expect(hintOf(/Put Alice Anderson back on this shift/)).toMatch(/sick leave for that day is cancelled too/)
     await choose(user, /Put Alice Anderson back on this shift/)
     expect(h.onReinstate).toHaveBeenCalledWith(noCover, { cancelLeave: true })
     expect(h.onClose).toHaveBeenCalled()
@@ -296,7 +305,7 @@ describe('ShiftMenu — Put back', () => {
     open(slotVacated, { entries: [slotVacated, { id: 'e2', date: '2026-08-10', profile_id: 'doc-a' }] })
     const put = option(/Put Alice Anderson back on this shift/)
     expect(put).toBeDisabled()
-    expect(put.closest('label')).toHaveTextContent(/now has another shift on Mon 10 Aug/)
+    expect(hintOf(/Put Alice Anderson back on this shift/)).toMatch(/now has another shift on Mon 10 Aug/)
   })
 })
 

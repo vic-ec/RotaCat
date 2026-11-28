@@ -5,6 +5,7 @@ import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
 import { ChevronDown as ChevronDownIcon, Search as SearchIcon, X as CloseIcon } from 'lucide-react'
 import CheckIcon from './icons/CheckIcon'
+import FilterOptionRows from './FilterOptionRows'
 
 // Above this many options, a group's expanded list gets a capped height
 // with its own scrollbar instead of growing the popover indefinitely.
@@ -45,13 +46,6 @@ function FilterGroup({ group, expanded, onToggleExpand }) {
   const visibleOptions = searchable && query.trim()
     ? options.filter(opt => opt.label.toLowerCase().includes(query.trim().toLowerCase()))
     : options
-
-  function toggleOption(value) {
-    const next = new Set(selected)
-    if (next.has(value)) next.delete(value)
-    else next.add(value)
-    onChange(next)
-  }
 
   return (
     <div className="border-b border-slate-line last:border-0">
@@ -102,26 +96,7 @@ function FilterGroup({ group, expanded, onToggleExpand }) {
             {visibleOptions.length === 0 && (
               <p className="px-4 py-1.5 text-sm text-ink-muted">No matches</p>
             )}
-            {visibleOptions.map(opt => {
-              const checked = selected.has(opt.value)
-              return (
-                <label
-                  key={opt.value}
-                  className="flex w-full cursor-pointer items-center gap-2.5 px-4 py-1.5 text-sm text-ink-light transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken"
-                >
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => toggleOption(opt.value)}
-                    className="sr-only"
-                  />
-                  <span className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border ${checked ? 'border-accent bg-accent text-on-fill' : 'border-slate-line'}`}>
-                    {checked && <CheckIcon className="h-2.5 w-2.5" />}
-                  </span>
-                  <span className={checked ? 'font-semibold text-ink' : ''}>{opt.label}</span>
-                </label>
-              )
-            })}
+            <FilterOptionRows options={visibleOptions} selected={selected} onChange={onChange} />
           </div>
         </div>
       )}
@@ -139,9 +114,12 @@ function FilterGroup({ group, expanded, onToggleExpand }) {
 // instead of being limited to picking exactly one value per dimension.
 //
 // `groups`: [{ key, label, options: [{value,label}], selected: Set,
-// onChange(nextSet) }]. The trigger's own active state and badge count are
-// derived from the groups' selected sets, so callers never compute that
-// separately.
+// onChange(nextSet), defaultExpanded? }]. The trigger's own active state and
+// badge count are derived from the groups' selected sets, so callers never
+// compute that separately. An option may nest `children` (see
+// FilterOptionRows). `defaultExpanded` opens that group as the popover
+// opens — for a panel whose one group is the whole point, so its options
+// show on the first click rather than behind a second.
 // `labelFrom`: as ToolbarFacet's — 'xl' keeps the button an icon below a
 // wide desktop.
 export default function FilterPanel({ groups, className = '', labelFrom = 'sm' }) {
@@ -161,6 +139,7 @@ export default function FilterPanel({ groups, className = '', labelFrom = 'sm' }
   function toggle() {
     if (open) { close(); return }
     setAnchorRect(triggerRef.current.getBoundingClientRect())
+    setExpandedKey(groups.find(g => g.defaultExpanded)?.key ?? null)
     setOpen(true)
   }
 

@@ -441,3 +441,18 @@ export const CATEGORY_GROUP_ORDER = ['Intern', 'Registrar']
 export function categoryGroupKey(doctor) {
   return CATEGORY_GROUP_ORDER.includes(doctor.category) ? doctor.category : 'Intern'
 }
+
+const OT_PLACEMENT_KEYS = ['OT_DPM_BCH', 'OT_LRCHC', 'OT_PSYCH']
+
+// Whether a doctor passes the Rotations page's Filter. `selected` holds leaf
+// values only — 'EC', the three OT placements, 'Registrar' — and empty means
+// no filter. `typeKeys` are the rotation keys the caller is showing for this
+// doctor (the displayed year's for the grid, today's for the right-now list),
+// so each view filters on what it actually shows. Registrars match on their
+// category alone. A legacy bare-OT row (no subtype) counts as OT intern as a
+// whole, so it matches once every OT placement is ticked.
+export function matchesRotationFilter(doctor, typeKeys, selected) {
+  if (selected.size === 0) return true
+  if (categoryGroupKey(doctor) === 'Registrar') return selected.has('Registrar')
+  return typeKeys.some(key => selected.has(key) || (key === 'OT' && OT_PLACEMENT_KEYS.every(k => selected.has(k))))
+}

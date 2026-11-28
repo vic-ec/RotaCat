@@ -4,7 +4,7 @@ import ExpandAllButton from './ExpandAllButton'
 import { allSectionsCollapsed } from '../lib/collapsibleSections'
 import {
   ChevronDown, EllipsisVertical, CircleQuestionMark, ScrollText,
-  TriangleAlert, X, Plus, ListFilter, ChevronLeft, ChevronRight,
+  TriangleAlert, X, Plus, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import SelectMenu from './SelectMenu'
 import DateFieldButton from './DateFieldButton'
@@ -17,7 +17,10 @@ import Toolbar from './Toolbar'
 import FloatingActionMenu from './FloatingActionMenu'
 import DateStepper from './DateStepper'
 import RotationSequenceRow, { MonthLetterHeader } from './RotationSequenceRow'
-import { rotationForDate, groupRotationsByDoctorId, activeRotationStatus, monthSpan, CATEGORY_GROUP_ORDER, categoryGroupKey } from '../lib/internRotations'
+import {
+  rotationForDate, groupRotationsByDoctorId, activeRotationStatus, monthSpan, monthlyTypeKeys, CATEGORY_GROUP_ORDER, categoryGroupKey,
+  matchesRotationFilter,
+} from '../lib/internRotations'
 import {
   ROTATION_TYPE_KEY_OPTIONS, rotationTypeKey, rotationTypeOptionsForCategory, rotationTypeLabel, rotationTypeShortName,
   ROTATION_TYPE_COLOR,
@@ -34,15 +37,23 @@ import { useFillToViewport } from '../lib/useFillToViewport'
 // 'mobile' layout). The month columns stretch to fill the table's width;
 // this is only the floor, below which the grid scrolls sideways instead.
 const MIN_MONTH_COL_WIDTH = 56 // px
-const LABEL_COL_WIDTH = 200 // px — room for the name and the rotation line under it
+const LABEL_COL_WIDTH = 240 // px — room for the name and the position line under it ("Until 31 Mar 2027 · month 8 of 12")
 
 // Sections are Intern then Registrar (CATEGORY_GROUP_ORDER and
 // categoryGroupKey, shared with the Rotation status table, live in
 // lib/internRotations.js with the reasoning).
 const CATEGORY_GROUP_LABEL = { Intern: 'Interns', Registrar: 'Registrars' }
-const CATEGORY_FILTER_OPTIONS = [
-  { value: 'all', label: 'All categories' },
-  { value: 'Intern', label: 'Intern' },
+
+// The Filter's one group — interns by the rotation they're on (OT split
+// into its placements, nested under "OT intern"), registrars by category.
+// Values are rotation-type keys (see matchesRotationFilter); placement
+// labels come from the same map as the legend so the two always agree.
+const ROTATION_FILTER_OPTIONS = [
+  { value: 'EC', label: 'EC intern' },
+  {
+    label: 'OT intern',
+    children: ['OT_DPM_BCH', 'OT_PSYCH', 'OT_LRCHC'].map(key => ({ value: key, label: rotationTypeLabel(key).replace('OT · ', '') })),
+  },
   { value: 'Registrar', label: 'Registrar' },
 ]
 
@@ -219,7 +230,7 @@ export default function InternRotationsMatrix({
   const [removingRotation, setRemovingRotation] = useState(null)
   const seenOverlapPairsRef = useRef(new Map()) // doctorId -> Set of pair keys already surfaced
   const [search, setSearch] = useState('')
-  const [categoryFilter, setCategoryFilter] = useState('all')
+  const [rotationFilter, setRotationFilter] = useState(() => new Set())
   // Add-doctor picker: `addDoctorFor` is null (closed), a category key
   // (desktop's per-section "+ Add doctor"), or 'all' (mobile's one FAB,
   // which offers unassigned doctors across every category at once).
@@ -235,7 +246,12 @@ export default function InternRotationsMatrix({
     setCollapsedGroups(g => ({ ...g, [key]: !g[key] }))
   }
 
-  const filteredDoctors = doctors.filter(d => matchesSearch(d, search) && (categoryFilter === 'all' || categoryGroupKey(d) === categoryFilter))
+  // The grid filters on the rotations its rows show (the displayed year);
+  // the right-now panel below filters on today's instead.
+  const searchedDoctors = doctors.filter(d => matchesSearch(d, search))
+  const filteredDoctors = searchedDoctors.filter(d => matchesRotationFilter(
+    d, monthlyTypeKeys(rotationsByDoctorId.get(d.id) || [], year).filter(Boolean), rotationFilter,
+  ))
 
   // Fixed category sections — Interns, then Registrars, in that order. A
   // doctor never moves section when their current rotation changes (that
@@ -395,13 +411,15 @@ export default function InternRotationsMatrix({
 
   // "Right now" panel — resolved off TODAY, not whichever year the grid
   // happens to be showing (answers "who's doing what right now"
-  // independent of browsing), and respects the toolbar's own
-  // search/category filter same as the grid/cards below it.
+  // independent of browsing), and respects the toolbar's own search and
+  // Filter — the Filter applied to today's rotation, since that's what
+  // this panel shows.
   const nowBySection = new Map(NOW_SECTIONS.map(sec => [sec.key, []]))
-  for (const doctor of filteredDoctors) {
+  for (const doctor of searchedDoctors) {
     const rotation = rotationForDate(rotationsByDoctorId.get(doctor.id), today)
     if (!rotation) continue
     const typeKey = rotationTypeKey(rotation.rotation_type, rotation.subtype)
+    if (!matchesRotationFilter(doctor, [typeKey], rotationFilter)) continue
     const sectionKey = categoryGroupKey(doctor) === 'Registrar'
       ? 'registrars'
       : (typeKey === 'EC' ? 'ec-interns' : 'ot-interns')
@@ -454,14 +472,13 @@ export default function InternRotationsMatrix({
   const monthColWidth = Math.max(MIN_MONTH_COL_WIDTH, Math.floor((gridWidth - LABEL_COL_WIDTH) / 12))
   const gridTemplateColumns = `${LABEL_COL_WIDTH}px repeat(12, ${monthColWidth}px)`
 
-  const filterFacets = [{
-    key: 'category', icon: <ListFilter className="h-4 w-4" />, label: 'Category',
-    value: categoryFilter, onChange: setCategoryFilter,
-    options: CATEGORY_FILTER_OPTIONS,
-    isActive: categoryFilter !== 'all',
+  const filterGroups = [{
+    key: 'category', label: 'Category', defaultExpanded: true,
+    options: ROTATION_FILTER_OPTIONS,
+    selected: rotationFilter, onChange: setRotationFilter,
   }]
-  const clearActive = Boolean(search) || categoryFilter !== 'all'
-  const onClearAll = () => { setSearch(''); setCategoryFilter('all') }
+  const clearActive = Boolean(search) || rotationFilter.size > 0
+  const onClearAll = () => { setSearch(''); setRotationFilter(new Set()) }
 
   // Shared by the md–lg standalone button and the Toolbar FAB's primary
   // action below `md` — same reset-then-open, one definition.
@@ -819,10 +836,10 @@ export default function InternRotationsMatrix({
   if (isDesktop) {
     return (
       <div>
-        {/* One toolbar row across the full width — find on the left, the
-            year and the kebab on the right — the same shape as the Roster
-            page's. The search box is what gives as the window narrows, so
-            the year, Today and the kebab never wrap. */}
+        {/* Search, Filter, Legend and the kebab in one run on the left. The
+            year isn't here — it leads the side panel instead, the way the
+            leave planners' year stepper leads theirs. The search box is
+            what gives as the window narrows. */}
         <div className="mb-2 flex items-center gap-2">
           <div className="min-w-0 max-w-[480px] flex-1">
             <Toolbar
@@ -831,15 +848,13 @@ export default function InternRotationsMatrix({
               searchValue={search}
               onSearchChange={setSearch}
               searchPlaceholder="Search name…"
-              filterFacets={filterFacets}
+              filterGroups={filterGroups}
               mobileMode="inline"
               active={clearActive}
               onClearAll={onClearAll}
             />
           </div>
-          <div className="ml-auto flex flex-shrink-0 items-center gap-2">
-            {dateNav}
-            <div className="h-5 w-px bg-slate-line" aria-hidden="true" />
+          <div className="flex flex-shrink-0 items-center gap-2">
             <LegendSheet
               title="Legend"
               trigger={onClick => (
@@ -920,10 +935,16 @@ export default function InternRotationsMatrix({
           )}
         </div>
 
-        {/* Scrolls on its own once the list outgrows the screen; the grid
-            stays put. */}
+        {/* The year leads the panel (as on the leave planners) and stays
+            put; what's under it scrolls on its own once it outgrows the
+            screen, and the grid stays put either way. */}
         <aside className="sticky top-4 w-72 flex-shrink-0">
-          <div ref={panelFillRef} style={panelFillStyle} className="card overflow-y-auto p-4">{!selectedDoctor ? renderNoSelectionPanel() : renderDoctorPanel()}</div>
+          <div ref={panelFillRef} style={panelFillStyle} className="card flex flex-col overflow-hidden">
+            <div className="flex-shrink-0 border-b border-slate-line p-3">
+              <DateStepper unit="year" year={year} onChange={onYearChange} centered nowrap todayLabel showToday={year !== currentYear} />
+            </div>
+            <div className="min-h-0 overflow-y-auto p-4">{!selectedDoctor ? renderNoSelectionPanel() : renderDoctorPanel()}</div>
+          </div>
         </aside>
         </div>
 
@@ -952,7 +973,7 @@ export default function InternRotationsMatrix({
               searchValue={search}
               onSearchChange={setSearch}
               searchPlaceholder="Search name…"
-              filterFacets={filterFacets}
+              filterGroups={filterGroups}
               mobileMode="inline"
               active={clearActive}
               onClearAll={onClearAll}
@@ -1074,7 +1095,7 @@ export default function InternRotationsMatrix({
         primaryAction={{ icon: Plus, label: 'Add doctor', onClick: openAddDoctor }}
         search={{ value: search, onChange: setSearch, placeholder: 'Search name…' }}
         filter={{
-          facets: filterFacets,
+          groups: filterGroups,
           active: clearActive,
           onClearAll,
           sheetTitle: 'Filters',

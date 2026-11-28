@@ -6,6 +6,7 @@ import { shiftStartLabel } from '../lib/myYear'
 import { formatLocalDate } from '../lib/dateRange'
 import ProfileAvatar from './ProfileAvatar'
 import ContactQuickMenu from './ContactQuickMenu'
+import { prefetchContactCards } from '../lib/contactCard'
 import { PanelRows, PanelRow } from './PanelRows'
 
 // The admin Dashboard's "On shift": who is on now (grouped by shift, each
@@ -113,7 +114,13 @@ export default function OnShiftPanel() {
     const read = () => {
       const at = new Date()
       fetchOnShiftBoard(at)
-        .then(b => { if (!cancelled) { setBoard(b); setNow(at); setError('') } })
+        .then(b => {
+          if (cancelled) return
+          setBoard(b); setNow(at); setError('')
+          // Contact details for everyone on the board, in the background,
+          // so a tap on a name opens its menu at once.
+          prefetchContactCards(b?.contactProfiles)
+        })
         .catch(err => { if (!cancelled) setError(err.message) })
     }
     read()
@@ -173,7 +180,7 @@ export default function OnShiftPanel() {
           </p>
         )}
       </div>
-      {contact && <ContactQuickMenu target={contact} triggerRef={triggerRef} onClose={closeContact} />}
+      {contact && <ContactQuickMenu key={contact.key} target={contact} triggerRef={triggerRef} onClose={closeContact} />}
     </section>
   )
 }

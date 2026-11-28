@@ -55,18 +55,26 @@ export function boardPerson(row, { late = false, vacatedName = null } = {}) {
 //        doctor's name, adjusted times already applied
 // now    a Date
 // Returns { now: [group], next: [group], consultant, consultantId,
-// rosterMonthId (the roster holding today) }, each group
+// rosterMonthId (the roster holding today), contactProfiles }, each group
 // { key, start, end, startTime, endTime, night, people }. `next` is every
 // shift starting at the first start time after `now` (within 24 hours).
+// `contactProfiles` is the profile row (with `id`) of everyone on the board
+// who has an account, and of the consultant on call — what the contact menu
+// is prefilled from.
 export function buildOnShiftBoard(rows, now, { lateEntryIds = new Set() } = {}) {
   const groups = new Map()
   let consultant = null
   let consultantId = null
+  let consultantProfile = null
   let rosterMonthId = null
+  const profilesById = new Map()
   const today = formatLocalDate(now)
   for (const row of rows || []) {
     if (row.date === today && row.roster_month_id) rosterMonthId = row.roster_month_id
-    if (row.consultant_profile_id && row.date === today && row.consultant) { consultant = fullName(row.consultant); consultantId = row.consultant_profile_id }
+    if (row.consultant_profile_id && row.date === today && row.consultant) {
+      consultant = fullName(row.consultant); consultantId = row.consultant_profile_id; consultantProfile = row.consultant
+    }
+    if (row.profile_id && row.profile) profilesById.set(row.profile_id, row.profile)
     const st = row.shift_type
     if (!st) continue
     const person = boardPerson(row, { late: lateEntryIds.has(row.id), vacatedName: row.vacated ? fullName(row.vacated) : null })
@@ -87,7 +95,15 @@ export function buildOnShiftBoard(rows, now, { lateEntryIds = new Set() } = {}) 
   const ahead = all.filter(g => g.start > now && g.start - now <= 24 * 3600000)
   const firstStart = ahead[0]?.start?.getTime()
   const next = firstStart == null ? [] : ahead.filter(g => g.start.getTime() === firstStart)
-  return { now: onNow, next, consultant, consultantId, rosterMonthId }
+
+  const contacts = new Map()
+  for (const g of [...onNow, ...next]) {
+    for (const p of g.people) {
+      if (p.profileId && profilesById.has(p.profileId)) contacts.set(p.profileId, { ...profilesById.get(p.profileId), id: p.profileId })
+    }
+  }
+  if (consultantId && consultantProfile) contacts.set(consultantId, { ...consultantProfile, id: consultantId })
+  return { now: onNow, next, consultant, consultantId, rosterMonthId, contactProfiles: [...contacts.values()] }
 }
 
 // "in 30 min" / "in 2 h" / "tomorrow"
@@ -98,13 +114,15 @@ export function startsInLabel(start, now) {
   return `in ${Math.round(minutes / 60)} h`
 }
 
-const PERSON = 'name, surname, category, color_code, avatar_url, pattern_type'
+// phone and email_verified are for the contact menu (prefilled as the
+// board loads, so a tap opens it at once).
+const PERSON = 'name, surname, category, color_code, avatar_url, pattern_type, phone, email_verified'
 const COLUMNS = 'id, date, roster_month_id, profile_id, is_locum, locum_name, locum_contact_id, vacated_profile_id, consultant_profile_id, '
   + 'start_time_override, end_time_override, roster_months!inner(status, deleted_at), '
   + 'shift_type:shift_types(code, start_time, end_time, is_night_shift), '
   + `profile:profiles!roster_entries_profile_id_fkey(${PERSON}), `
   + 'vacated:profiles!roster_entries_vacated_profile_id_fkey(name, surname), '
-  + 'consultant:profiles!roster_entries_consultant_profile_id_fkey(name, surname)'
+  + 'consultant:profiles!roster_entries_consultant_profile_id_fkey(name, surname, phone, email_verified)'
 
 export async function fetchOnShiftBoard(now = new Date()) {
   const today = formatLocalDate(now)

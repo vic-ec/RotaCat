@@ -10,6 +10,7 @@ import {
 import { formatPhoneDisplay, formatPhoneProgressive } from './phone'
 import { createInternRotation } from './internRotations'
 import { looksLikeFakeName, looksLikeFakePhone } from './spamHeuristics'
+import { notifyBadgesChanged } from './navBadges'
 
 // Rotation-tracked categories only — a scheduled start/end date is meant
 // for doctors whose Active/Upcoming/Completed status is actually managed
@@ -205,6 +206,7 @@ export function usePendingApprovalReview(id, { onDone } = {}) {
       alert('Could not approve account: ' + error.message)
       return
     }
+    notifyBadgesChanged()
 
     const leaveDays = annualLeaveDaysForCategory(finalCategory)
     if (leaveDays !== null) {
@@ -262,6 +264,7 @@ export function usePendingApprovalReview(id, { onDone } = {}) {
       alert('Could not reject account: ' + error.message)
       return
     }
+    notifyBadgesChanged()
     // Best-effort — the rejection itself already succeeded above, so a
     // failure to notify shouldn't block navigating away or look like the
     // rejection didn't go through.

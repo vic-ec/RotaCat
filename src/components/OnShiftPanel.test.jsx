@@ -10,8 +10,10 @@ function setViewport(desktop) {
 
 const fetchOnShiftBoard = vi.hoisted(() => vi.fn())
 vi.mock('../lib/onShiftBoard', async () => ({ ...(await vi.importActual('../lib/onShiftBoard')), fetchOnShiftBoard }))
-const fetchContactCard = vi.hoisted(() => vi.fn())
-vi.mock('../lib/contactCard', () => ({ fetchContactCard }))
+const { fetchContactCard, getCachedContactCard, prefetchContactCards } = vi.hoisted(() => ({
+  fetchContactCard: vi.fn(), getCachedContactCard: vi.fn(), prefetchContactCards: vi.fn(),
+}))
+vi.mock('../lib/contactCard', () => ({ fetchContactCard, getCachedContactCard, prefetchContactCards }))
 
 const doctor = (key, name, surname, extra = {}) => ({ key, kind: 'doctor', profile: { name, surname, color_code: '#0F766E' }, initials: `${name[0]}${surname[0]}`, name: `${name} ${surname}`, meta: 'MO', label: `${name} ${surname} · MO`, late: false, ...extra })
 const group = (startTime, endTime, people, extra = {}) => ({
@@ -118,6 +120,8 @@ describe('OnShiftPanel — contact details', () => {
     setViewport(false)
     vi.setSystemTime(new Date(2026, 10, 24, 14, 30))
     fetchContactCard.mockReset().mockResolvedValue({ name: 'Maurice Mokoena', phone: '0821234567', email: 'm@example.test', emailVerified: true })
+    getCachedContactCard.mockReset().mockReturnValue(undefined)
+    prefetchContactCards.mockReset().mockResolvedValue()
     fetchOnShiftBoard.mockReset().mockResolvedValue({
       now: [group('08:00:00', '18:00:00', [
         doctor('a', 'Maurice', 'Mokoena', { profileId: 'p-1' }),
@@ -126,7 +130,29 @@ describe('OnShiftPanel — contact details', () => {
       next: [],
       consultant: 'Kate Meyer',
       consultantId: 'c-1',
+      contactProfiles: [{ id: 'p-1', name: 'Maurice', surname: 'Mokoena', phone: '0821234567', email_verified: true }],
     })
+  })
+
+  it('prefetches contact details for the people on the board as it loads', async () => {
+    render(<MemoryRouter><OnShiftPanel /></MemoryRouter>)
+    await screen.findAllByTestId('on-shift-group')
+    expect(prefetchContactCards).toHaveBeenCalledWith([{ id: 'p-1', name: 'Maurice', surname: 'Mokoena', phone: '0821234567', email_verified: true }])
+  })
+
+  it('details already in memory show at once, with no loading and no fetch', async () => {
+    vi.useRealTimers()
+    getCachedContactCard.mockImplementation(({ profileId }) => (profileId === 'p-1'
+      ? { name: 'Maurice Mokoena', phone: '0821234567', email: 'm@example.test', emailVerified: true }
+      : undefined))
+    render(<MemoryRouter><OnShiftPanel /></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: /Maurice Mokoena · MO\. Contact/ }))
+    const menu = screen.getByTestId('contact-menu')
+    // On the first render: enabled rows and the Mail link, nothing to wait for.
+    expect(within(menu).getByRole('button', { name: 'Message' })).toBeEnabled()
+    expect(within(menu).getByRole('button', { name: 'Call' })).toBeEnabled()
+    expect(within(menu).getByRole('link', { name: 'Mail' })).toHaveAttribute('href', 'mailto:m@example.test')
+    expect(fetchContactCard).not.toHaveBeenCalled()
   })
 
   it('a tap on a doctor opens the contact menu: Message and Call (Mobile, WhatsApp) and Mail', async () => {

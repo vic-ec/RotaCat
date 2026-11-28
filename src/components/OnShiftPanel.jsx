@@ -162,7 +162,7 @@ export default function OnShiftPanel() {
           </PanelRows>
         )}
         {board?.consultant && (
-          <p className="border-t border-slate-line px-4 py-2.5 text-xs text-ink-muted" data-testid="on-call">
+          <p className="border-t border-slate-line px-4 py-2.5 text-sm text-ink-muted" data-testid="on-call">
             On call Consultant:{' '}
             {board.consultantId ? (
               <button

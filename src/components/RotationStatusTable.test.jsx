@@ -158,8 +158,9 @@ describe('RotationStatusTable — completed', () => {
     const user = userEvent.setup()
     const handlers = renderCompleted()
     const row = screen.getByTitle('Sipho Dlamini').closest('[aria-selected]')
-    expect(within(row).getByText('Finished 30 Jun')).toBeInTheDocument()
-    expect(within(row).getByText('6 months in Psych')).toBeInTheDocument()
+    // The finished date shares the line under the name, so the name keeps
+    // the row's whole first line.
+    expect(within(row).getByText('Finished 30 Jun · 6 months in Psych')).toBeInTheDocument()
 
     await user.click(row)
     await user.click(screen.getByRole('button', { name: 'Reactivate' }))

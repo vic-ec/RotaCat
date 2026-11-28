@@ -253,16 +253,70 @@ describe('InternRotationsMatrix', () => {
     expect(onSelectDoctor).toHaveBeenCalledWith('intern-1')
   })
 
-  it('category filter narrows the visible rows to the chosen category', async () => {
+  // Toolbar mounts both its desktop and mobile rows in the DOM at once (CSS,
+  // not JS, picks which one is visible) — jsdom applies no layout, so both
+  // Filter buttons exist; either drives the same state.
+  async function openFilter(user) {
+    await user.click(screen.getAllByRole('button', { name: 'Filter' })[0])
+    return screen.getByRole('menu')
+  }
+
+  it('the Filter opens straight onto the categories, with OT placements nested under OT intern', async () => {
     const user = userEvent.setup()
     renderMatrix()
-    // Toolbar mounts both its desktop and mobile rows in the DOM at once
-    // (CSS, not JS, picks which one is visible) — jsdom applies no layout,
-    // so both "Category" buttons exist; either fires the same onChange.
-    await user.click(screen.getAllByRole('button', { name: 'Category' })[0])
-    await user.click(within(screen.getByRole('menu')).getByRole('button', { name: 'Registrar' }))
+    const menu = await openFilter(user)
+    for (const name of ['EC intern', 'OT intern', 'TB Hospital', 'Psych', 'Day Hospital', 'Registrar']) {
+      expect(within(menu).getByRole('checkbox', { name })).toBeInTheDocument()
+    }
+  })
+
+  it('filtering to Registrar narrows the rows to registrars', async () => {
+    const user = userEvent.setup()
+    renderMatrix()
+    const menu = await openFilter(user)
+    await user.click(within(menu).getByRole('checkbox', { name: 'Registrar' }))
     expect(screen.getByTitle('Rae Registrar')).toBeInTheDocument()
     expect(screen.queryByTitle('Ivy Intern')).not.toBeInTheDocument()
+  })
+
+  it('an OT placement keeps interns who do it in the displayed year; ticking OT intern ticks every placement', async () => {
+    const user = userEvent.setup()
+    renderMatrix()
+    const menu = await openFilter(user)
+    await user.click(within(menu).getByRole('checkbox', { name: 'Day Hospital' }))
+    expect(screen.getByTitle('Ivy Intern')).toBeInTheDocument() // Day Hospital from Apr 2027
+    expect(screen.queryByTitle('Rae Registrar')).not.toBeInTheDocument()
+    expect(screen.queryByTitle('Cara Cosmo')).not.toBeInTheDocument() // no rotations at all
+
+    await user.click(within(menu).getByRole('checkbox', { name: 'OT intern' }))
+    for (const name of ['TB Hospital', 'Psych', 'Day Hospital']) {
+      expect(within(menu).getByRole('checkbox', { name })).toBeChecked()
+    }
+  })
+
+  it('the right-now panel filters on today\'s rotation, the grid on the displayed year\'s', async () => {
+    // Ivy did EC in Jan–Mar 2027 but is on Day Hospital today (15 Jun 2027).
+    const user = userEvent.setup()
+    renderMatrix()
+    const menu = await openFilter(user)
+    await user.click(within(menu).getByRole('checkbox', { name: 'EC intern' }))
+    expect(screen.getByTitle('Ivy Intern')).toBeInTheDocument()
+    const panel = screen.getByText('Right now').closest('div')
+    expect(within(panel).queryByRole('button', { name: 'Intern' })).not.toBeInTheDocument()
+  })
+
+  it('desktop: the year leads the side panel, and Legend/More sit right after Filter', () => {
+    renderMatrix()
+    const aside = screen.getByRole('complementary')
+    const yearLabel = within(aside).getByText('2027')
+    expect(yearLabel.compareDocumentPosition(within(aside).getByText('Right now')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    const filter = screen.getAllByRole('button', { name: 'Filter' })[0]
+    const legend = screen.getAllByRole('button', { name: 'Legend' })[0]
+    const more = screen.getByRole('button', { name: 'More actions' })
+    expect(filter.compareDocumentPosition(legend) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(legend.compareDocumentPosition(more) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(legend.closest('aside')).toBeNull()
   })
 
   it('add-doctor flow: picking an unassigned doctor creates a first EC block, selects them, and opens edit mode', async () => {

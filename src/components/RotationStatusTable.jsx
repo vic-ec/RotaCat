@@ -20,7 +20,7 @@ import { useIsDesktop } from '../lib/useIsDesktop'
 import { useFillToViewport } from '../lib/useFillToViewport'
 
 const MIN_MONTH_COL_WIDTH = 56 // px — same floor as InternRotationsMatrix's own grid
-const LABEL_COL_WIDTH = 200 // px
+const LABEL_COL_WIDTH = 240 // px — same as InternRotationsMatrix, so the tabs line up
 
 const CATEGORY_GROUP_LABEL = { Intern: 'Interns', Registrar: 'Registrars' }
 const CATEGORY_FILTER_OPTIONS = [
@@ -95,6 +95,15 @@ function completedChipAndLine(doctor, doctorRotations, year) {
     return { chip, line: `${status.totalMonths} month${suffix} in ${rotationTypeShortName(key)}` }
   }
   return { chip, line: `${status.totalMonths} month${suffix} in ${status.blockCount} block${status.blockCount === 1 ? '' : 's'}` }
+}
+
+// What a row shows. Completed folds its "Finished …" chip into the line
+// under the name ("Finished 31 Aug · 6 months in EC") — the chip was long
+// enough to crowd the name out of the row's label column.
+function rowChipAndLine(variant, doctor, doctorRotations, year) {
+  if (variant === 'upcoming') return upcomingChipAndLine(doctor, doctorRotations, year)
+  const { chip, line } = completedChipAndLine(doctor, doctorRotations, year)
+  return { chip: null, line: [chip.text, line].filter(Boolean).join(' · ') }
 }
 
 function lastRotationEndYear(doctorRotations) {
@@ -425,9 +434,7 @@ export default function RotationStatusTable({
                   {!collapsed[group.key] && group.items.map(doctor => {
                     const doctorRotations = rotationsByDoctor.get(doctor.id) || []
                     const label = displayNames?.get(doctor.id) ?? doctor.surname
-                    const { chip, line } = variant === 'upcoming'
-                      ? upcomingChipAndLine(doctor, doctorRotations, year)
-                      : completedChipAndLine(doctor, doctorRotations, year)
+                    const { chip, line } = rowChipAndLine(variant, doctor, doctorRotations, year)
                     return (
                       <RotationSequenceRow
                         key={doctor.id}
@@ -513,9 +520,7 @@ export default function RotationStatusTable({
                 {group.items.map(doctor => {
                   const doctorRotations = rotationsByDoctor.get(doctor.id) || []
                   const label = displayNames?.get(doctor.id) ?? doctor.surname
-                  const { chip, line } = variant === 'upcoming'
-                    ? upcomingChipAndLine(doctor, doctorRotations, year)
-                    : completedChipAndLine(doctor, doctorRotations, year)
+                  const { chip, line } = rowChipAndLine(variant, doctor, doctorRotations, year)
                   return (
                     <RotationSequenceRow
                       key={doctor.id}

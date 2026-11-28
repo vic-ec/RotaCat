@@ -52,16 +52,19 @@ async function choose(user, name) {
 beforeEach(() => { window.matchMedia = vi.fn().mockReturnValue({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() }) })
 
 describe('ShiftMenu — which menu opens (the spec table)', () => {
-  it('a doctor on a published roster: Rearrange (Move, Replace, Remove), Absence (Mark absent → the vacancy form), Times', async () => {
+  it('a doctor on a published roster: Rearrange (Move, Replace, Remove), then Times with Mark absent last (→ the vacancy form)', async () => {
     const user = userEvent.setup()
     const h = open(row)
     expect(within(dialog()).getByRole('button', { name: 'Continue' })).toBeDisabled()
     expect(within(dialog()).getByText('Rearrange')).toBeInTheDocument()
-    expect(within(dialog()).getByText('Absence')).toBeInTheDocument()
+    // No "Absence" heading: Mark absent is the last choice of the menu.
+    expect(within(dialog()).queryByText('Absence')).not.toBeInTheDocument()
     option(/Move to another shift/)
     option(/Replace with someone else/)
     option(/Remove from this shift/)
     option(/Change times/)
+    const radios = within(dialog()).getAllByRole('radio')
+    expect(radios.at(-1)).toBe(option(/Mark absent/))
     await choose(user, /Mark absent/)
     expect(h.onVacancy).toHaveBeenCalledWith(row)
     expect(h.onClose).toHaveBeenCalled()

@@ -158,7 +158,7 @@ function categoryRank(category) {
 // a week 1 holding only a Saturday and a Sunday gave those two days a
 // third of the table each and let the name column swallow the rest.
 //
-// Weeks run Monday to Sunday (buildWeeks in RosterGridPage), so Monday is
+// Weeks run Monday to Sunday (buildWeeks in pages/rosterGrid/rosterCalendar.js), so Monday is
 // column 0 and the blanks fall on whichever end the month boundary cut.
 function buildDayColumns(days, padToWeek) {
   const columns = days.map(day => ({ key: day.dateStr, day }))

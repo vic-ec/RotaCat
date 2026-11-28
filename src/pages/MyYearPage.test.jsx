@@ -208,7 +208,33 @@ describe('MyYearPage', () => {
     await userEvent.type(search, 'sick')
     const rows = document.querySelectorAll('[data-request-id]')
     expect(rows).toHaveLength(1)
-    expect(rows[0].textContent).toMatch(/Sick leave.*Approved.*18–19 Nov 2026 · 2 days · Off roster/s)
+    expect(rows[0].textContent).toMatch(/Sick leave.*Approved.*18–19 Nov 2026.*2 days.*—.*Off roster/s)
+  })
+
+  it('the Leave tab on desktop: a table with the six columns and three actions', async () => {
+    mockAuth = { profile: doctor(ME, 'Maurice'), isAdmin: true, canSubmitLeave: true }
+    renderAt(`/my-year/${ADA}?tab=leave`)
+    const table = await screen.findByTestId('leave-table')
+    expect(within(table).getAllByRole('columnheader').map(h => h.textContent)).toEqual(['Leave type', 'Status', 'Period', 'Shifts affected', 'Notes', 'Actions'])
+  })
+
+  it('sends an admin\'s View request to Team Leave › All Leave with that request open', async () => {
+    mockAuth = { profile: doctor(ME, 'Maurice'), isAdmin: true, canSubmitLeave: true }
+    renderAt('/my-year?tab=leave')
+    const table = await screen.findByTestId('leave-table')
+    const sick = within(table).getAllByRole('row').find(r => /Sick leave/.test(r.textContent))
+    expect(within(sick).getByRole('link', { name: 'View request in All Leave' })).toHaveAttribute('href', '/leave?tab=team&sub=all&lyear=2026&lrequest=k1')
+  })
+
+  it('links a row to the roster, its planner and the request', async () => {
+    renderAt('/my-year?tab=leave')
+    const table = await screen.findByTestId('leave-table')
+    const annual = within(table).getAllByRole('row').find(r => /Annual leave/.test(r.textContent))
+    expect(within(annual).getByRole('link', { name: 'View in Annual planner' })).toHaveAttribute('href', expect.stringContaining('sub=annual'))
+    expect(within(annual).getByRole('link', { name: 'View request in My Requests' })).toHaveAttribute('href', '/leave?tab=requests&request=a1')
+    // Pending leave has no planner to show it in.
+    const pending = within(table).getAllByRole('row').find(r => /Pending/.test(r.textContent))
+    expect(within(pending).queryByRole('link', { name: /planner/ })).not.toBeInTheDocument()
   })
 
   it('has one Go to… menu with the five destinations', async () => {

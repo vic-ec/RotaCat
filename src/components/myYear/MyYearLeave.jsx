@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
+import { Calendar, NotebookTabs, FileText } from 'lucide-react'
+import Tag from '../Tag'
+import LeaveCodeBox from './LeaveCodeBox'
 import LeaveRequestRow from '../LeaveRequestRow'
 import { useIsDesktop } from '../../lib/useIsDesktop'
 import Toolbar from '../Toolbar'
@@ -10,12 +13,36 @@ import { formatShortDateRange } from '../../lib/dateRange'
 import { LEAVE_TYPE_LABELS } from '../../lib/leaveRequests'
 import { totalLeaveDays } from '../../lib/leaveMatrix'
 import { reviewStatusLabel } from '../../lib/statusLabels'
-import { coverForRequest, coverSummary, isCountedLeave } from '../../lib/myYear'
+import { coverForRequest, coverSummary, coverNote, shiftsAffected, isCountedLeave } from '../../lib/myYear'
 import { rosterLinkForDate } from '../../lib/myYearData'
-import { leaveDestination } from '../../lib/myYearLinks'
+import { leaveDestination, requestLink, teamLeaveLink } from '../../lib/myYearLinks'
 import { plural } from '../../lib/text'
 
 const PHONE_LIMIT = 5
+const STATUS_TONE = { pending: 'warning', approved: 'success', rejected: 'danger', cancelled: 'neutral' }
+
+// The three ways out of a desktop row: the roster on its first day, the
+// planner showing it, and the request itself — an admin's Team Leave › All
+// Leave with its details open; a doctor's own My Requests, scrolled to it.
+// The planner is left out for leave no planner shows (rejected, cancelled,
+// still pending).
+function rowActions(r, { isAdmin, rosterTo }) {
+  const planner = r.status === 'approved' ? requestLink(r) : null
+  return {
+    roster: rosterTo,
+    planner: planner ? { to: planner.to, label: `View in ${planner.label}` } : null,
+    request: { to: isAdmin ? teamLeaveLink(r) : `/leave?tab=requests&request=${r.id}`, label: isAdmin ? 'View request in All Leave' : 'View request in My Requests' },
+  }
+}
+
+function ActionLink({ to, icon, label }) {
+  if (!to) return <span className="h-9 w-9" aria-hidden="true" />
+  return (
+    <Link to={to} title={label} aria-label={label} className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink">
+      {icon}
+    </Link>
+  )
+}
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const STATUS_OPTIONS = ['approved', 'pending', 'rejected', 'cancelled'].map(v => ({ value: v, label: reviewStatusLabel(v) }))
 const EMPTY = { month: new Set(), leaveType: new Set(), status: new Set() }
@@ -77,9 +104,10 @@ export default function MyYearLeave({ rows, data, profileId, today, isAdmin = fa
         dates: `${formatShortDateRange(r.date_from, r.date_to)} ${year}`,
         label: LEAVE_TYPE_LABELS[r.leave_type] || r.leave_type,
         days: Number(totalLeaveDays(r)),
-        cover: r.status === 'approved'
-          ? coverSummary(coverForRequest(r, data.entries, { profileId, publishedMonths: data.publishedMonths, today }))
-          : '—',
+        ...(() => {
+          const c = r.status === 'approved' ? coverForRequest(r, data.entries, { profileId, publishedMonths: data.publishedMonths, today }) : null
+          return { cover: c ? coverSummary(c) : '—', shifts: c ? shiftsAffected(c) : '—', note: c ? coverNote(c) : '—' }
+        })(),
         rosterTo: rosterLinkForDate(data.monthIds, r.date_from, { doctor: profileId, mark: true }),
         // The request where it is shown (see leaveDestination); none for
         // rejected or cancelled leave, or a sick day already on this list.
@@ -87,8 +115,8 @@ export default function MyYearLeave({ rows, data, profileId, today, isAdmin = fa
       }
     }), [rows, facets, q, data, profileId, today, isAdmin, own, wide])
 
-  // A phone shows the first few, with Show all; a wider screen, all.
-  const phoneItems = showAll || isMd ? items : items.slice(0, PHONE_LIMIT)
+  // A phone shows the first few, with Show all; the desktop table, all.
+  const phoneItems = showAll ? items : items.slice(0, PHONE_LIMIT)
 
   // The Staff list's spacing: 8px between the section bar and what it heads.
   return (
@@ -105,7 +133,7 @@ export default function MyYearLeave({ rows, data, profileId, today, isAdmin = fa
           mobileMode="inline"
           active={active}
           onClearAll={clearAll}
-          trailing={controls && <div className="ml-auto flex flex-shrink-0 items-center gap-2">{controls}</div>}
+          trailing={controls && <div className="flex flex-shrink-0 items-center gap-2">{controls}</div>}
         />
       </div>
       <div className="flex flex-nowrap items-center gap-2 md:hidden">
@@ -123,8 +151,52 @@ export default function MyYearLeave({ rows, data, profileId, today, isAdmin = fa
         <p className="card px-4 py-3 text-sm text-ink-muted">No leave requests{!active ? '' : ' match'} this year.</p>
       ) : (
         <>
-          {/* One two-line row per request at every width: the column is the
-              Roster and Planners lists' width (the page sets it). */}
+          {/* Desktop: a table, the Overview's width. One or the other is
+              rendered, never both, so a request is in the page once. */}
+          {isMd ? (
+          <div className="card overflow-x-auto">
+            <table className="w-full text-left text-sm" data-testid="leave-table">
+              <thead>
+                <tr className="border-b border-slate-line text-xs text-ink-muted">
+                  {['Leave type', 'Status', 'Period', 'Shifts affected', 'Notes', 'Actions'].map(h => (
+                    <th key={h} scope="col" className={`px-4 py-2.5 font-medium ${h === 'Actions' ? 'text-right' : ''}`}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-line">
+                {items.map(item => {
+                  const r = item.request
+                  const a = rowActions(r, { isAdmin, rosterTo: item.rosterTo })
+                  return (
+                    <tr key={r.id} data-request-id={r.id} className={focusId === r.id ? 'bg-accent-tint' : ''}>
+                      <td className="px-4 py-2.5">
+                        <span className="flex items-center gap-2 font-semibold text-ink">
+                          <LeaveCodeBox leaveType={r.leave_type} />{item.label}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5"><Tag variant="status" tone={STATUS_TONE[r.status] || 'neutral'}>{reviewStatusLabel(r.status)}</Tag></td>
+                      <td className="whitespace-nowrap px-4 py-2.5">
+                        <span className="block font-medium text-ink">{item.dates}</span>
+                        <span className="block text-xs text-ink-muted">{plural(item.days, 'day')}</span>
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-2.5 text-ink">{item.shifts}</td>
+                      <td className={`px-4 py-2.5 ${/not covered/i.test(item.note) ? 'font-medium text-ink' : 'text-ink-light'}`}>{item.note}</td>
+                      <td className="px-2 py-1">
+                        <span className="flex items-center justify-end gap-0.5">
+                          <ActionLink to={a.roster} icon={<Calendar className="h-4 w-4" />} label="View roster" />
+                          <ActionLink to={a.planner?.to} icon={<NotebookTabs className="h-4 w-4" />} label={a.planner?.label} />
+                          <ActionLink to={a.request.to} icon={<FileText className="h-4 w-4" />} label={a.request.label} />
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          ) : (
+          // Phone: one two-line row per request.
           <div>
             <ul className="card divide-y divide-slate-line overflow-hidden">
               {phoneItems.map(item => (
@@ -140,12 +212,13 @@ export default function MyYearLeave({ rows, data, profileId, today, isAdmin = fa
                 />
               ))}
             </ul>
-            {!showAll && !isMd && items.length > PHONE_LIMIT && (
+            {!showAll && items.length > PHONE_LIMIT && (
               <button type="button" onClick={() => setShowAll(true)} className="btn-secondary mt-3 min-h-[44px] w-full justify-center">
                 Show all {items.length}
               </button>
             )}
           </div>
+          )}
         </>
       )}
     </div>

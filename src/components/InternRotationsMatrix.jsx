@@ -3,23 +3,22 @@ import SectionBar from './SectionBar'
 import ExpandAllButton from './ExpandAllButton'
 import { allSectionsCollapsed } from '../lib/collapsibleSections'
 import {
-  ChevronDown, EllipsisVertical, CircleQuestionMark, ScrollText,
+  ChevronDown,
   TriangleAlert, X, Plus, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import SelectMenu from './SelectMenu'
 import DateFieldButton from './DateFieldButton'
 import DoctorDropdown from './DoctorDropdown'
 import Modal from './Modal'
-import LegendSheet from './LegendSheet'
-import { LegendIcon } from './PlannerIcons'
-import PageActionsMenu from './PageActionsMenu'
+import { RotationLegendButton, RotationLegendSwatches, RotationsMoreMenu } from './RotationsToolbarParts'
+import { ROTATIONS_PAGE_TITLE, ROTATIONS_MENU_ITEMS } from './rotationsMenuItems'
 import Toolbar from './Toolbar'
 import FloatingActionMenu from './FloatingActionMenu'
 import DateStepper from './DateStepper'
 import RotationSequenceRow, { MonthLetterHeader } from './RotationSequenceRow'
 import {
   rotationForDate, groupRotationsByDoctorId, activeRotationStatus, monthSpan, monthlyTypeKeys, CATEGORY_GROUP_ORDER, categoryGroupKey,
-  matchesRotationFilter,
+  matchesRotationFilter, ROTATION_FILTER_OPTIONS,
 } from '../lib/internRotations'
 import {
   ROTATION_TYPE_KEY_OPTIONS, rotationTypeKey, rotationTypeOptionsForCategory, rotationTypeLabel, rotationTypeShortName,
@@ -43,19 +42,6 @@ const LABEL_COL_WIDTH = 240 // px — room for the name and the position line un
 // categoryGroupKey, shared with the Rotation status table, live in
 // lib/internRotations.js with the reasoning).
 const CATEGORY_GROUP_LABEL = { Intern: 'Interns', Registrar: 'Registrars' }
-
-// The Filter's one group — interns by the rotation they're on (OT split
-// into its placements, nested under "OT intern"), registrars by category.
-// Values are rotation-type keys (see matchesRotationFilter); placement
-// labels come from the same map as the legend so the two always agree.
-const ROTATION_FILTER_OPTIONS = [
-  { value: 'EC', label: 'EC intern' },
-  {
-    label: 'OT intern',
-    children: ['OT_DPM_BCH', 'OT_PSYCH', 'OT_LRCHC'].map(key => ({ value: key, label: rotationTypeLabel(key).replace('OT · ', '') })),
-  },
-  { value: 'Registrar', label: 'Registrar' },
-]
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
@@ -484,46 +470,12 @@ export default function InternRotationsMatrix({
   // action below `md` — same reset-then-open, one definition.
   const openAddDoctor = () => { setAddDoctorSearch(''); setAddDoctorError(''); setAddDoctorFor('all') }
 
-  const menuItems = [
-    { key: 'how-it-works', icon: <CircleQuestionMark className="h-4 w-4" />, label: 'How it works', disabled: true, onClick: () => {} },
-    { key: 'review-log', icon: <ScrollText className="h-4 w-4" />, label: 'Review log', disabled: true, onClick: () => {} },
-  ]
-
-  const legendSwatches = (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
-      {ROTATION_TYPE_KEY_OPTIONS.map(o => (
-        <span key={o.key} className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 flex-shrink-0 rounded-sm" style={{ backgroundColor: ROTATION_TYPE_COLOR[o.key] }} />
-          {o.label}
-        </span>
-      ))}
-    </div>
-  )
-
   // Year nav + Today — the shared DateStepper rather than a hand-rolled
   // pair of buttons, so this page gets the same standard button styling
   // and the same "Today only shows once you've paged away" behaviour as
   // every other planner for free, instead of yet another bespoke copy of
   // both.
   const dateNav = <DateStepper unit="year" year={year} onChange={onYearChange} nowrap todayLabel showToday={year !== currentYear} />
-
-  const overflowMenu = (
-    <PageActionsMenu
-      title="Intern & Registrar Rotations"
-      items={menuItems}
-      trigger={(onClick, open) => (
-        <button
-          type="button"
-          onClick={onClick}
-          aria-label="More actions"
-          aria-expanded={open}
-          className={`icon-btn ${open ? 'icon-btn-active' : 'icon-btn-idle'}`}
-        >
-          <EllipsisVertical className="h-4 w-4" />
-        </button>
-      )}
-    />
-  )
 
   // ── Shared panel content (desktop's sticky aside / mobile's bottom sheet) ──
   function renderNoSelectionPanel(showHeader = true) {
@@ -855,15 +807,8 @@ export default function InternRotationsMatrix({
             />
           </div>
           <div className="flex flex-shrink-0 items-center gap-2">
-            <LegendSheet
-              title="Legend"
-              trigger={onClick => (
-                <button type="button" onClick={onClick} aria-label="Legend" title="Legend" className="btn-utility h-[30px] w-[30px] p-0"><LegendIcon className="h-4 w-4" /></button>
-              )}
-            >
-              {legendSwatches}
-            </LegendSheet>
-            {overflowMenu}
+            <RotationLegendButton />
+            <RotationsMoreMenu />
           </div>
         </div>
 
@@ -983,15 +928,8 @@ export default function InternRotationsMatrix({
             {dateNav}
             <div className="hidden items-center gap-2 md:flex">
               <div className="h-5 w-px bg-slate-line" aria-hidden="true" />
-              <LegendSheet
-                title="Legend"
-                trigger={onClick => (
-                  <button type="button" onClick={onClick} aria-label="Legend" title="Legend" className="btn-utility h-[30px] w-[30px] p-0"><LegendIcon className="h-4 w-4" /></button>
-                )}
-              >
-                {legendSwatches}
-              </LegendSheet>
-              {overflowMenu}
+              <RotationLegendButton />
+              <RotationsMoreMenu />
             </div>
           </div>
           {/* On a phone the year stepper is alone on this row, so the
@@ -1100,8 +1038,8 @@ export default function InternRotationsMatrix({
           onClearAll,
           sheetTitle: 'Filters',
         }}
-        legend={{ title: 'Legend', children: legendSwatches }}
-        moreMenu={{ title: 'Intern & Registrar Rotations', items: menuItems }}
+        legend={{ title: 'Legend', children: <RotationLegendSwatches /> }}
+        moreMenu={{ title: ROTATIONS_PAGE_TITLE, items: ROTATIONS_MENU_ITEMS }}
       />
 
       {showNowSheet && (

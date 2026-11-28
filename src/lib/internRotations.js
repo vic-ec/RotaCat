@@ -11,7 +11,7 @@
 import { supabase } from './supabase'
 import { columnForLeaveCategory } from './leaveYearGrid'
 import { todayStr, addDays } from './dateRange'
-import { defaultHoursForCategory, rotationTypeKey } from './staffDefaults'
+import { defaultHoursForCategory, rotationTypeKey, rotationTypeLabel } from './staffDefaults'
 
 // Doctor categories whose EC/OT status is tracked as a rotation timeline
 // rather than a fixed profiles field — mirrors categoryNeedsContractChoice's
@@ -443,6 +443,20 @@ export function categoryGroupKey(doctor) {
 }
 
 const OT_PLACEMENT_KEYS = ['OT_DPM_BCH', 'OT_LRCHC', 'OT_PSYCH']
+
+// The Rotations page's Filter options, shared by all three tabs — interns
+// by the rotation they're on (OT split into its placements, nested under
+// "OT intern"), registrars by category. Values are what
+// matchesRotationFilter reads; placement labels come from the same map as
+// the legend so the two always agree.
+export const ROTATION_FILTER_OPTIONS = [
+  { value: 'EC', label: 'EC intern' },
+  {
+    label: 'OT intern',
+    children: ['OT_DPM_BCH', 'OT_PSYCH', 'OT_LRCHC'].map(key => ({ value: key, label: rotationTypeLabel(key).replace('OT · ', '') })),
+  },
+  { value: 'Registrar', label: 'Registrar' },
+]
 
 // Whether a doctor passes the Rotations page's Filter. `selected` holds leaf
 // values only — 'EC', the three OT placements, 'Registrar' — and empty means

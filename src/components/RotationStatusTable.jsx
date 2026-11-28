@@ -1,19 +1,22 @@
 import { useEffect, useState } from 'react'
 import SectionBar from './SectionBar'
 import { useNavigate } from 'react-router-dom'
-import { ChevronDown, ListFilter } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 import ExpandAllButton from './ExpandAllButton'
 import { allSectionsCollapsed } from '../lib/collapsibleSections'
 import Modal from './Modal'
 import Tag from './Tag'
 import DateFieldButton from './DateFieldButton'
 import Toolbar from './Toolbar'
-import LegendSheet from './LegendSheet'
-import { LegendIcon } from './PlannerIcons'
+import { RotationLegendButton, RotationLegendSwatches, RotationsMoreMenu } from './RotationsToolbarParts'
+import { ROTATIONS_PAGE_TITLE, ROTATIONS_MENU_ITEMS } from './rotationsMenuItems'
 import FloatingActionMenu from './FloatingActionMenu'
 import DateStepper from './DateStepper'
 import RotationSequenceRow, { MonthLetterHeader } from './RotationSequenceRow'
-import { groupRotationsByDoctorId, upcomingRotationStatus, completedRotationStatus, monthSpan, CATEGORY_GROUP_ORDER, categoryGroupKey } from '../lib/internRotations'
+import {
+  groupRotationsByDoctorId, upcomingRotationStatus, completedRotationStatus, monthSpan, CATEGORY_GROUP_ORDER, categoryGroupKey,
+  matchesRotationFilter, ROTATION_FILTER_OPTIONS,
+} from '../lib/internRotations'
 import { rotationTypeKey, rotationTypeShortName, ROTATION_TYPE_KEY_OPTIONS, ROTATION_TYPE_COLOR } from '../lib/staffDefaults'
 import { todayStr, MONTH_ABBR, parseLocalDate } from '../lib/dateRange'
 import { useIsDesktop } from '../lib/useIsDesktop'
@@ -23,11 +26,6 @@ const MIN_MONTH_COL_WIDTH = 56 // px — same floor as InternRotationsMatrix's o
 const LABEL_COL_WIDTH = 240 // px — same as InternRotationsMatrix, so the tabs line up
 
 const CATEGORY_GROUP_LABEL = { Intern: 'Interns', Registrar: 'Registrars' }
-const CATEGORY_FILTER_OPTIONS = [
-  { value: 'all', label: 'All categories' },
-  { value: 'Intern', label: 'Intern' },
-  { value: 'Registrar', label: 'Registrar' },
-]
 const NO_ROTATIONS_GROUP_KEY = 'no-rotations'
 
 function matchesSearch(doctor, search) {
@@ -152,7 +150,7 @@ export default function RotationStatusTable({
   const setGridNode = el => { setGridNodeState(el); gridRef(el) }
 
   const [search, setSearch] = useState('')
-  const [categoryFilter, setCategoryFilter] = useState('all')
+  const [rotationFilter, setRotationFilter] = useState(() => new Set())
   const [selectedId, setSelectedId] = useState(null)
   const [collapsed, setCollapsed] = useState({})
   // Panel-local editing: the start date (Upcoming) or active-from date
@@ -164,7 +162,13 @@ export default function RotationStatusTable({
 
   const rotationsByDoctor = groupRotationsByDoctorId(rotations)
 
-  const filteredDoctors = doctors.filter(d => matchesSearch(d, search) && (categoryFilter === 'all' || categoryGroupKey(d) === categoryFilter))
+  // Same Filter as the Active tab, matched against every rotation on
+  // record rather than the displayed year's: Upcoming lists its doctors
+  // whatever year is showing, and a Completed doctor's history is the
+  // point of the tab.
+  const filteredDoctors = doctors.filter(d => matchesSearch(d, search) && matchesRotationFilter(
+    d, (rotationsByDoctor.get(d.id) || []).map(r => rotationTypeKey(r.rotation_type, r.subtype)), rotationFilter,
+  ))
 
   const groups = variant === 'upcoming'
     ? CATEGORY_GROUP_ORDER
@@ -361,31 +365,26 @@ export default function RotationStatusTable({
   const gridTemplateColumns = `${LABEL_COL_WIDTH}px repeat(12, ${monthColWidth}px)`
   const currentMonthIndex = Number(today.slice(5, 7)) - 1
 
-  const filterFacets = [{
-    key: 'category', icon: <ListFilter className="h-4 w-4" />, label: 'Category',
-    value: categoryFilter, onChange: setCategoryFilter,
-    options: CATEGORY_FILTER_OPTIONS,
-    isActive: categoryFilter !== 'all',
+  const filterGroups = [{
+    key: 'category', label: 'Category', defaultExpanded: true,
+    options: ROTATION_FILTER_OPTIONS,
+    selected: rotationFilter, onChange: setRotationFilter,
   }]
-  const clearActive = Boolean(search) || categoryFilter !== 'all'
-  const onClearAll = () => { setSearch(''); setCategoryFilter('all') }
-
-  const legendSwatches = (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
-      {ROTATION_TYPE_KEY_OPTIONS.map(o => (
-        <span key={o.key} className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 flex-shrink-0 rounded-sm" style={{ backgroundColor: ROTATION_TYPE_COLOR[o.key] }} />
-          {o.label}
-        </span>
-      ))}
-    </div>
-  )
+  const clearActive = Boolean(search) || rotationFilter.size > 0
+  const onClearAll = () => { setSearch(''); setRotationFilter(new Set()) }
 
   const dateNav = <DateStepper unit="year" year={year} onChange={onYearChange} nowrap todayLabel showToday={year !== currentYear} />
 
+  // The year leads the side panel and stays put while what's under it
+  // scrolls — the same as the Active tab's.
   const panelAside = (
     <aside className="sticky top-4 w-72 flex-shrink-0">
-      <div className="card max-h-[calc(100dvh-2rem)] overflow-y-auto p-4">{renderPanel()}</div>
+      <div className="card flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden">
+        <div className="flex-shrink-0 border-b border-slate-line p-3">
+          <DateStepper unit="year" year={year} onChange={onYearChange} centered nowrap todayLabel showToday={year !== currentYear} />
+        </div>
+        <div className="min-h-0 overflow-y-auto p-4">{renderPanel()}</div>
+      </div>
     </aside>
   )
 
@@ -401,16 +400,17 @@ export default function RotationStatusTable({
               searchValue={search}
               onSearchChange={setSearch}
               searchPlaceholder="Search name…"
-              filterFacets={filterFacets}
+              filterGroups={filterGroups}
               mobileMode="inline"
               active={clearActive}
               onClearAll={onClearAll}
             />
           </div>
-          <div className="ml-auto flex flex-shrink-0 items-center gap-2">{dateNav}</div>
+          <div className="flex flex-shrink-0 items-center gap-2">
+            <RotationLegendButton />
+            <RotationsMoreMenu />
+          </div>
         </div>
-
-        <div className="mb-3">{legendSwatches}</div>
 
         <div className="flex items-start gap-4">
           <div className="min-w-0 flex-1">
@@ -476,7 +476,7 @@ export default function RotationStatusTable({
               searchValue={search}
               onSearchChange={setSearch}
               searchPlaceholder="Search name…"
-              filterFacets={filterFacets}
+              filterGroups={filterGroups}
               mobileMode="inline"
               active={clearActive}
               onClearAll={onClearAll}
@@ -486,14 +486,8 @@ export default function RotationStatusTable({
             {dateNav}
             <div className="hidden items-center gap-2 md:flex">
               <div className="h-5 w-px bg-slate-line" aria-hidden="true" />
-              <LegendSheet
-                title="Legend"
-                trigger={onClick => (
-                  <button type="button" onClick={onClick} aria-label="Legend" title="Legend" className="btn-utility h-[30px] w-[30px] p-0"><LegendIcon className="h-4 w-4" /></button>
-                )}
-              >
-                {legendSwatches}
-              </LegendSheet>
+              <RotationLegendButton />
+              <RotationsMoreMenu />
             </div>
           </div>
         </div>
@@ -546,8 +540,9 @@ export default function RotationStatusTable({
 
       <FloatingActionMenu
         search={{ value: search, onChange: setSearch, placeholder: 'Search name…' }}
-        filter={{ facets: filterFacets, active: clearActive, onClearAll, sheetTitle: 'Filters' }}
-        legend={{ title: 'Legend', children: legendSwatches }}
+        filter={{ groups: filterGroups, active: clearActive, onClearAll, sheetTitle: 'Filters' }}
+        legend={{ title: 'Legend', children: <RotationLegendSwatches /> }}
+        moreMenu={{ title: ROTATIONS_PAGE_TITLE, items: ROTATIONS_MENU_ITEMS }}
       />
 
       {selectedDoctor && (

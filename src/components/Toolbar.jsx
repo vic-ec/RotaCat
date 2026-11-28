@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import ClearableInput from './ClearableInput'
 import FilterPanel from './FilterPanel'
+import FilterOptionRows from './FilterOptionRows'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
 import { ChevronDown as ChevronDownIcon, Search as SearchIcon, X as CloseIcon } from 'lucide-react'
@@ -207,13 +208,6 @@ function ToolbarGroupInline({ label, options, selected, onChange, alwaysSearchab
     setOpen(true)
   }
 
-  function toggleOption(value) {
-    const next = new Set(selected)
-    if (next.has(value)) next.delete(value)
-    else next.add(value)
-    onChange(next)
-  }
-
   const isAll = selected.size === 0
   const searchable = alwaysSearchable || options.length > SEARCH_THRESHOLD
   const visibleOptions = searchable ? filterByQuery(options, query) : options
@@ -288,26 +282,7 @@ function ToolbarGroupInline({ label, options, selected, onChange, alwaysSearchab
             {searchable && visibleOptions.length === 0 && (
               <p className="px-4 py-2 text-sm text-ink-muted">No matches</p>
             )}
-            {visibleOptions.map(opt => {
-              const checked = selected.has(opt.value)
-              return (
-                <label
-                  key={opt.value}
-                  className="flex w-full cursor-pointer items-center gap-2.5 px-4 py-2 text-sm text-ink-light transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken"
-                >
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => toggleOption(opt.value)}
-                    className="sr-only"
-                  />
-                  <span className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border ${checked ? 'border-accent bg-accent text-on-fill' : 'border-slate-line'}`}>
-                    {checked && <CheckIcon className="h-2.5 w-2.5" />}
-                  </span>
-                  <span className={checked ? 'font-semibold text-ink' : ''}>{opt.label}</span>
-                </label>
-              )
-            })}
+            <FilterOptionRows options={visibleOptions} selected={selected} onChange={onChange} rowPadding="py-2" />
           </div>
         </div>,
         document.body

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   resolveLeaveCapacityColumn, rotationForDate, rotationBoundaryNote, groupRotationsByDoctorId,
   endOfRotationFlag, groupRotationsIntoBlocks, monthSpan, activeRotationStatus, upcomingRotationStatus, completedRotationStatus,
+  matchesRotationFilter,
 } from './internRotations'
 
 const EC_ROTATION = { doctor_id: 'intern-1', rotation_type: 'EC', start_date: '2027-01-01', end_date: '2027-02-28' }
@@ -291,5 +292,32 @@ describe('completedRotationStatus', () => {
     const first = { id: 'a', rotation_type: 'EC', subtype: null, start_date: '2027-01-01', end_date: '2027-02-28' }
     const second = { id: 'b', rotation_type: 'OT', subtype: 'LRCHC', start_date: '2027-03-01', end_date: '2027-03-31' }
     expect(completedRotationStatus([first, second])).toEqual({ situation: 'multi-block', totalMonths: 3, blockCount: 1 })
+  })
+})
+
+describe('matchesRotationFilter', () => {
+  const intern = { category: 'Intern' }
+  const registrar = { category: 'Registrar' }
+
+  it('passes everyone when nothing is selected', () => {
+    expect(matchesRotationFilter(intern, [], new Set())).toBe(true)
+    expect(matchesRotationFilter(registrar, ['EC'], new Set())).toBe(true)
+  })
+
+  it('matches an intern on any of the rotation keys shown for them', () => {
+    expect(matchesRotationFilter(intern, ['EC', 'OT_PSYCH'], new Set(['OT_PSYCH']))).toBe(true)
+    expect(matchesRotationFilter(intern, ['EC'], new Set(['OT_PSYCH']))).toBe(false)
+    expect(matchesRotationFilter(intern, [], new Set(['EC']))).toBe(false)
+  })
+
+  it('matches registrars on their category, never on an intern rotation key', () => {
+    expect(matchesRotationFilter(registrar, ['EC'], new Set(['Registrar']))).toBe(true)
+    expect(matchesRotationFilter(registrar, ['EC'], new Set(['EC']))).toBe(false)
+    expect(matchesRotationFilter(intern, ['EC'], new Set(['Registrar']))).toBe(false)
+  })
+
+  it('counts a bare-OT row as OT intern only once every OT placement is ticked', () => {
+    expect(matchesRotationFilter(intern, ['OT'], new Set(['OT_PSYCH']))).toBe(false)
+    expect(matchesRotationFilter(intern, ['OT'], new Set(['OT_DPM_BCH', 'OT_LRCHC', 'OT_PSYCH']))).toBe(true)
   })
 })

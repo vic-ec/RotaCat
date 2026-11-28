@@ -5,7 +5,7 @@ import ExpandAllButton from './ExpandAllButton'
 import { allSectionsCollapsed } from '../lib/collapsibleSections'
 import { createPortal } from 'react-dom'
 import { useSearchParams } from 'react-router-dom'
-import { ArrowUpDown, CalendarX2, Plus, Shapes } from 'lucide-react'
+import { ArrowUpDown, CalendarX2, Shapes } from 'lucide-react'
 import RowActionIcon from './RowActionIcon'
 import CancelLeaveModal from './CancelLeaveModal'
 import { CANCELLABLE_STATUSES } from '../lib/leaveCancellation'
@@ -31,7 +31,6 @@ import { fetchMyYearSettings } from '../lib/myYearData'
 import DateStepper from './DateStepper'
 import ViewToggle from './ViewToggle'
 import LeaveAuditByMonth, { ByMonthLegend } from './LeaveAuditByMonth'
-import DateFieldButton from './DateFieldButton'
 import FilterPanel from './FilterPanel'
 import { QuickSelectButton } from './Toolbar'
 import ClearableInput from './ClearableInput'
@@ -65,20 +64,16 @@ const TABLE_SECTIONS = [
 // leave type. Kept in the URL (?by=, ?lyear=) so a link or a reload lands
 // on the same one.
 const VIEW_OPTIONS = [
-  // Icons only (the date pickers need the room): "M" for month, shapes for
-  // leave type, each named on hover or tap.
-  { key: 'month', label: 'By month', shortLabel: 'M' },
-  { key: 'type', label: 'By leave type', icon: Shapes },
+  // "Month" / "Leave type" on a wide desktop; "M" and the shapes icon on
+  // anything narrower, each named on hover or tap.
+  { key: 'month', label: 'Month', ariaLabel: 'By month', title: 'By month', shortLabel: 'M' },
+  { key: 'type', label: 'Leave type', ariaLabel: 'By leave type', title: 'By leave type', icon: Shapes },
 ]
 
 const STATUS_OPTIONS = [
   { value: 'active', label: 'Active' },
   { value: 'inactive', label: 'Inactive' },
 ]
-
-function yearStartStr() {
-  return `${new Date().getFullYear()}-01-01`
-}
 
 // The column headers are abbreviated to fit fifteen even columns ("Family
 // resp.", "Mat / pat", "Conf."), so each one can say its full name. `title`
@@ -157,7 +152,7 @@ function BucketCell({ bucket }) {
 // status, and leave type — all behind one Filter button (FilterPanel, same
 // multi-select grouped-facet pattern as the Staff list) rather than four
 // permanently-visible selects, since most visits don't need them.
-export default function LeaveAuditReport({ leading = null, onCapture }) {
+export default function LeaveAuditReport({ leading = null }) {
   // Same window-filling frame as Hours Summary and Current & Upcoming Leave.
   const [tableRef, tableFill] = useFillToViewport(32, { fit: true })
   const swatch = useSwatch()
@@ -172,11 +167,9 @@ export default function LeaveAuditReport({ leading = null, onCapture }) {
   function setParam(key, value) {
     setSearchParams(prev => { const next = new URLSearchParams(prev); next.set(key, String(value)); return next }, { replace: true })
   }
-  // By leave type keeps its own From/To; By month is always a whole year.
-  const [typeFrom, setDateFrom] = useState(yearStartStr())
-  const [typeTo, setDateTo] = useState(todayStr())
-  const dateFrom = byMonth ? `${year}-01-01` : typeFrom
-  const dateTo = byMonth ? `${year}-12-31` : typeTo
+  // Both views are one whole year, picked with the year stepper.
+  const dateFrom = `${year}-01-01`
+  const dateTo = `${year}-12-31`
   // By month only, read once and after the table: every approved break-type
   // request (to find a last break before the displayed year), the roster
   // months (for the breakdown's Roster link) and the "Long" threshold. The
@@ -378,17 +371,15 @@ export default function LeaveAuditReport({ leading = null, onCapture }) {
 
   return (
     <div>
-      {/* The From/To range stays on the row at every width — it's what the
-          report is *of*, not a way of narrowing it, same reasoning that
-          keeps Weekend's month nav out of its FAB. Search and Filter are
-          the narrowing controls, so below `md` they move into the FAB. */}
-      <div className="flex flex-wrap items-center gap-2">
-        {/* From md: Capture leave, search, Sort, Filter, then the dates.
-            On a phone only the dates stay on the row; Capture leave,
-            search, Sort and Filter are in the FAB. */}
-        {leading && <div className="hidden flex-shrink-0 md:block">{leading}</div>}
-        <div className="hidden items-center gap-2 md:flex">
-          <div className="w-80">
+      {/* One row at every width. As it narrows: Sort, Filter and the view
+          switch go to icons (below xl), then the search box narrows; on a
+          phone search, Sort and Filter move to the FAB, and "+ Capture",
+          the year and the view switch stay on the row. The year is what
+          the report is *of*, so it never leaves the row. */}
+      <div className="flex flex-nowrap items-center gap-2">
+        {leading && <div className="flex-shrink-0">{leading}</div>}
+        <div className="hidden min-w-0 flex-1 items-center gap-2 md:flex">
+          <div className="min-w-[7rem] max-w-[20rem] flex-1">
             <ClearableInput
               type="text"
               value={q}
@@ -398,33 +389,21 @@ export default function LeaveAuditReport({ leading = null, onCapture }) {
               clearLabel="Clear search"
             />
           </div>
-          <QuickSelectButton {...sortFacetProps} />
-          <FilterPanel groups={filterGroups} />
+          <QuickSelectButton {...sortFacetProps} labelFrom="xl" />
+          <FilterPanel groups={filterGroups} labelFrom="xl" />
           {activeFilterCount > 0 && (
-            <button type="button" onClick={clearFilters} className="text-sm font-medium text-accent hover:underline">
+            <button type="button" onClick={clearFilters} className="hidden whitespace-nowrap text-sm font-medium text-accent hover:underline xl:inline">
               Clear filters
             </button>
           )}
         </div>
-        {/* The period, then the view switch — the only two controls that
-            stay on the page on a phone. */}
-        <div className="flex basis-full flex-wrap items-center gap-2 md:basis-auto">
-          {byMonth ? (
-            <DateStepper unit="year" year={year} onChange={y => setParam('lyear', y)} nowrap />
-          ) : (
-            <div className="flex min-w-0 flex-1 gap-2 md:flex-none">
-              {/* min-w-0: the two share what the view switch leaves, rather
-                  than pushing it off a phone's edge. */}
-              <DateFieldButton label="From" fullWidth className="min-w-0 flex-1" value={dateFrom} onChange={setDateFrom} max={dateTo || undefined} />
-              <DateFieldButton label="To" fullWidth className="min-w-0 flex-1" value={dateTo} onChange={setDateTo} min={dateFrom || undefined} />
-            </div>
-          )}
-          <ViewToggle view={view} onChange={key => setParam('by', key)} options={VIEW_OPTIONS} iconOnly />
+        <div className="ml-auto flex flex-shrink-0 items-center gap-2">
+          <DateStepper unit="year" year={year} onChange={y => setParam('lyear', y)} nowrap />
+          <ViewToggle view={view} onChange={key => setParam('by', key)} options={VIEW_OPTIONS} labelFrom="xl" />
         </div>
       </div>
 
       <FloatingActionMenu
-        primaryAction={onCapture ? { icon: Plus, label: 'Capture leave', onClick: onCapture } : undefined}
         search={{ value: q, onChange: setQ, placeholder: 'Search by surname or first name…' }}
         sort={{ facets: [sortFacet], active: sortMode !== DEFAULT_DOCTOR_SORT }}
         filter={{

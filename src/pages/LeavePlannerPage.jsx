@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { Navigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
-import { UserPlus } from 'lucide-react'
 import PageTabs from '../components/PageTabs'
 import Modal from '../components/Modal'
 import LeaveRequestForm from '../components/LeaveRequestForm'
@@ -129,9 +128,10 @@ export default function LeavePlannerPage() {
   // views take the handler as well as the button.
   const onCapture = isAdmin ? () => setCaptureOpen(true) : undefined
   const captureButton = isAdmin ? (
-    <button type="button" onClick={() => setCaptureOpen(true)} className="btn-primary flex-shrink-0 whitespace-nowrap">
-      <UserPlus className="h-4 w-4" aria-hidden="true" />
-      Capture leave
+    // "+ Capture leave"; "+ Capture" on a phone, where it shares a row
+    // with the year controls.
+    <button type="button" onClick={() => setCaptureOpen(true)} aria-label="Capture leave" className="btn-primary flex-shrink-0 whitespace-nowrap">
+      <span aria-hidden="true">+ Capture<span className="hidden md:inline"> leave</span></span>
     </button>
   ) : null
   // Clerks get read-only "all" visibility into Annual/Special too — same

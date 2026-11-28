@@ -4,9 +4,11 @@ import { Link } from 'react-router-dom'
 import { CalendarX2, ChevronRight, X } from 'lucide-react'
 import RowActionIcon from './RowActionIcon'
 import { CANCELLABLE_STATUSES } from '../lib/leaveCancellation'
-import { MONTH_ABBR, formatShortDateRange } from '../lib/dateRange'
-import { LEAVE_TYPE_LABELS } from '../lib/leaveRequests'
-import { MONTH_SHADES, monthShadeStep, sinceLastBreakText } from '../lib/leaveAuditByMonth'
+import { MONTH_ABBR, formatShortDateRange, todayStr } from '../lib/dateRange'
+import { LEAVE_TYPE_LABELS, leaveTypeCode, leaveTypeLabelWithCode } from '../lib/leaveRequests'
+import { leaveGroupInk, leaveTypeGroupKey, LEAVE_GROUP_OPTIONS } from '../lib/leaveMatrix'
+import { sinceLastBreakText } from '../lib/leaveAuditByMonth'
+import LeaveTypeIcon from './LeaveTypeIcon'
 import { myYearPath } from '../lib/myYearLinks'
 import { fullDoctorName, DOCTOR_NAME_COL_PX } from '../lib/doctorNames'
 import { CONTRACT_TYPE_LABEL } from '../lib/doctorSort'
@@ -21,8 +23,67 @@ import LeaveCodeBox from './myYear/LeaveCodeBox'
 import { plural } from '../lib/text'
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-const shadeStyle = step => (step > 0 ? { backgroundColor: `var(--month-shade-${step})` } : undefined)
 const COLUMN_COUNT = 1 + 12 + 6 + 1
+const MONTH_COL_PX = 64
+
+// One month's slice of each leave a doctor has in it, as bars at their
+// exact days (the timeline the Matrix used to draw), approved on the upper
+// lane, pending dashed on a thin lane under it. A leave crossing into the
+// next month continues in the next cell, so it reads as one bar.
+function monthSlices(requests, year, month) {
+  const mm = String(month + 1).padStart(2, '0')
+  const dim = new Date(year, month + 1, 0).getDate()
+  const start = `${year}-${mm}-01`
+  const end = `${year}-${mm}-${String(dim).padStart(2, '0')}`
+  const out = []
+  for (const r of requests || []) {
+    if (r.date_to < start || r.date_from > end) continue
+    const a = r.date_from < start ? 1 : Number(r.date_from.slice(8, 10))
+    const b = r.date_to > end ? dim : Number(r.date_to.slice(8, 10))
+    out.push({ request: r, left: ((a - 1) / dim) * 100, width: ((b - a + 1) / dim) * 100, first: r.date_from >= start })
+  }
+  return out
+}
+
+function MonthBars({ requests, year, month, onOpen }) {
+  const today = todayStr()
+  const mm = String(month + 1).padStart(2, '0')
+  const dim = new Date(year, month + 1, 0).getDate()
+  const todayHere = today.startsWith(`${year}-${mm}-`)
+  return (
+    <div className="pointer-events-none absolute inset-0">
+      {todayHere && (
+        <span aria-hidden="true" className="absolute bottom-0 top-0 z-[1] w-px bg-accent/60" style={{ left: `${((Number(today.slice(8, 10)) - 0.5) / dim) * 100}%` }} />
+      )}
+      {monthSlices(requests, year, month).map(({ request, left, width, first }) => {
+        const ink = leaveGroupInk(leaveTypeGroupKey(request.leave_type))
+        const pending = request.status === 'pending'
+        const showCode = first && (width / 100) * MONTH_COL_PX >= 22
+        return (
+          <button
+            key={request.id}
+            type="button"
+            data-request-id={request.id}
+            data-testid="leave-bar"
+            onClick={e => { e.stopPropagation(); onOpen(request, e.currentTarget.getBoundingClientRect()) }}
+            title={`${leaveTypeLabelWithCode(request.leave_type)}${pending ? ' (pending)' : ''}: ${formatShortDateRange(request.date_from, request.date_to)}`}
+            aria-label={`${LEAVE_TYPE_LABELS[request.leave_type] || 'Leave'}${pending ? ', pending' : ''}, ${formatShortDateRange(request.date_from, request.date_to)}`}
+            className={`pointer-events-auto absolute z-[2] flex items-center justify-center overflow-hidden rounded-sm text-[9px] font-bold leading-none ${pending ? 'top-[25px] h-[8px]' : 'top-[6px] h-[17px]'}`}
+            style={{
+              left: `${left}%`,
+              width: `max(3px, ${width}%)`,
+              backgroundColor: `color-mix(in srgb, ${ink} ${pending ? 8 : 14}%, transparent)`,
+              border: pending ? `1px dashed ${ink}` : `1px solid color-mix(in srgb, ${ink} 45%, transparent)`,
+              color: ink,
+            }}
+          >
+            {showCode && !pending && leaveTypeCode(request.leave_type)}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
 
 // One month for one doctor: each leave entry, the annual / sick / other
 // subtotal, and the way to the roster and to their year.
@@ -108,6 +169,9 @@ function MonthBreakdown({ row, month, year, rosterTo, pinned = true, onClose = n
 // are what open a doctor's year.
 export default function LeaveAuditByMonth({
   sections, collapsedSections, onToggleSection, displayNames, columnLabelOf, year, monthIds = {}, tableRef, tableFill,
+  // The leave behind the bars (approved and pending), by doctor, and what a
+  // bar opens: onOpenRequest(request, rect).
+  requestsByProfile = new Map(), onOpenRequest = () => {},
   // A "Cancel" icon beside each leave in the month breakdown (admins; it
   // opens CancelLeaveModal) — so leave on any date can be cancelled here.
   onCancelLeave = null,
@@ -146,10 +210,10 @@ export default function LeaveAuditByMonth({
   return (
     <>
       <div ref={tableRef} style={tableFill} className="mt-4 overflow-auto rounded-lg border border-slate-line">
-        <table className="w-full min-w-[1180px] table-fixed border-separate border-spacing-0 text-xs" data-testid="all-leave-by-month">
+        <table className="w-full min-w-[1400px] table-fixed border-separate border-spacing-0 text-xs" data-testid="all-leave-by-month">
           <colgroup>
             <col style={{ width: DOCTOR_NAME_COL_PX }} />
-            {MONTH_ABBR.map(m => <col key={m} className="w-[46px]" />)}
+            {MONTH_ABBR.map(m => <col key={m} style={{ width: MONTH_COL_PX }} />)}
             <col className="w-[66px]" /><col className="w-[66px]" /><col className="w-[52px]" /><col className="w-[52px]" /><col className="w-[60px]" />
             <col className="w-[150px]" />
             <col />
@@ -158,7 +222,7 @@ export default function LeaveAuditByMonth({
             <tr className="text-[10px] uppercase tracking-wide text-ink-muted">
               <th scope="col" className="sticky left-0 z-20 border-b border-r border-slate-line bg-canvas-sunken px-2 py-1.5 text-left">Doctor</th>
               {MONTH_ABBR.map((m, i) => (
-                <th key={m} scope="col" title={MONTH_NAMES[i]} className="border-b border-slate-line bg-canvas-sunken px-1 py-1.5 text-center font-medium">{m}</th>
+                <th key={m} scope="col" title={MONTH_NAMES[i]} className={`border-b border-slate-line bg-canvas-sunken px-1 py-1.5 text-center font-medium ${todayStr().startsWith(`${year}-${String(i + 1).padStart(2, '0')}`) ? 'text-accent' : ''}`}>{m}</th>
               ))}
               {['Annual booked', 'Annual left', 'Sick', 'Other', 'Total days'].map((h, i) => (
                 <th key={h} scope="col" className={`border-b border-slate-line bg-canvas-sunken px-1 py-1.5 text-center align-bottom font-medium ${i === 0 ? 'border-l' : ''}`}>{h}</th>
@@ -202,7 +266,9 @@ export default function LeaveAuditByMonth({
                         <p className="mt-0.5 truncate text-[10px] text-ink-muted">{underName}</p>
                       </td>
                       {row.months.map((days, month) => (
-                        <td key={month} className="border-b border-slate-hairline p-0.5">
+                        <td key={month} className={`relative border-b border-slate-hairline p-0 ${month > 0 ? 'border-l border-l-slate-hairline' : ''}`}>
+                          {/* The month itself (under the bars): hover or tap
+                              for its days and the leave behind them. */}
                           <button
                             type="button"
                             aria-label={`${fullName}, ${MONTH_NAMES[month]}: ${plural(days, 'day')} on leave`}
@@ -216,16 +282,13 @@ export default function LeaveAuditByMonth({
                               else show(row, month, e.currentTarget, true)
                             }}
                             aria-pressed={isOpen(row, month) && open.pinned}
-                            className={`flex h-8 w-full items-center justify-center rounded text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent ${
-                              isOpen(row, month) && open.pinned
-                                ? 'bg-accent font-bold text-on-fill ring-2 ring-accent'
-                                : `${days > 0 ? 'font-semibold text-ink' : 'text-ink-muted'} ${isOpen(row, month) ? 'ring-2 ring-ink' : ''}`
+                            className={`block h-9 w-full focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent ${
+                              isOpen(row, month) ? (open.pinned ? 'bg-accent-tint ring-2 ring-inset ring-accent' : 'bg-canvas-sunken') : 'hover:bg-canvas-sunken'
                             }`}
-                            // A pinned month takes the solid teal; the shade would sit under it.
-                            style={isOpen(row, month) && open.pinned ? undefined : shadeStyle(monthShadeStep(days))}
-                          >
-                            {days}
-                          </button>
+                            data-testid="month-cell"
+                            data-days={days}
+                          />
+                          <MonthBars requests={requestsByProfile.get(row.profileId)} year={year} month={month} onOpen={onOpenRequest} />
                         </td>
                       ))}
                       <td className="border-b border-l border-b-slate-hairline border-l-slate-line px-1 py-1.5 text-center font-semibold text-ink">{row.annual}</td>
@@ -284,13 +347,17 @@ export default function LeaveAuditByMonth({
 export function ByMonthLegend({ longBreakDays }) {
   return (
     <div className="mt-3 space-y-1.5 text-xs text-ink-muted" data-testid="by-month-legend">
-      <ul className="flex flex-wrap items-center gap-x-4 gap-y-1.5" aria-label="Days on leave in a month">
-        {MONTH_SHADES.map(s => (
-          <li key={s.step} className="flex items-center gap-1.5">
-            <span aria-hidden="true" className="inline-block h-3.5 w-3.5 rounded border border-slate-line" style={shadeStyle(s.step)} />
-            {s.label}
-          </li>
+      <ul className="flex flex-wrap items-center gap-x-4 gap-y-1.5" aria-label="Legend">
+        {LEAVE_GROUP_OPTIONS.map(o => (
+          <li key={o.key} className="flex items-center gap-1.5"><LeaveTypeIcon groupKey={o.key} size="sm" />{o.label}</li>
         ))}
+        <li className="flex items-center gap-1.5">
+          <span aria-hidden="true" className="inline-block h-2 w-5 rounded-sm border border-dashed border-ink-muted" />Pending (the thin line under a doctor)
+        </li>
+        <li className="flex items-center gap-1.5">
+          <span aria-hidden="true" className="inline-block h-3.5 w-px bg-accent" />Today
+        </li>
+        <li>Hover or tap a month for its days.</li>
       </ul>
       <p>
         <span className="chip-amber mr-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium">Long</span>

@@ -12,7 +12,7 @@ describe('leaveDestination', () => {
   it('sick leave opens the request itself, never a planner', () => {
     const sick = req({ leave_type: 'sick', date_from: '2026-11-18', date_to: '2026-11-18' })
     expect(leaveDestination(sick, { own: true })).toEqual({ to: '/leave?tab=requests&request=r1', label: 'My Requests', kind: 'request' })
-    expect(leaveDestination(sick, { isAdmin: true, wide: true, profileId: 'p1' })).toMatchObject({ label: 'Team Leave', to: expect.stringContaining('lrequest=r1') })
+    expect(leaveDestination(sick, { isAdmin: true, wide: true, profileId: 'p1' })).toMatchObject({ label: 'All Leave', to: expect.stringContaining('sub=all&lyear=2026&lrequest=r1') })
     expect(leaveDestination(sick, { isAdmin: true, wide: false, profileId: 'p1' })).toEqual({ to: '/my-year/p1?tab=leave&year=2026&request=r1', label: 'Leave record', kind: 'request' })
     // Already on the Leave tab: nowhere else to send an admin on a phone.
     expect(leaveDestination(sick, { isAdmin: true, wide: false, profileId: 'p1', inLeaveTab: true })).toBeNull()
@@ -25,7 +25,7 @@ describe('leaveDestination', () => {
   })
 
   it('the Overview sends an admin on a wide screen to Team Leave for every type', () => {
-    expect(leaveDestination(req(), { isAdmin: true, wide: true, teamLeave: true })).toMatchObject({ label: 'Team Leave' })
+    expect(leaveDestination(req(), { isAdmin: true, wide: true, teamLeave: true })).toMatchObject({ label: 'All Leave' })
     expect(leaveDestination(req(), { isAdmin: true, wide: true })).toMatchObject({ label: 'Annual planner' })
   })
 })

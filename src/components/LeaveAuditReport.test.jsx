@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { act, render as rtlRender, screen, within } from '@testing-library/react'
+import { act, render as rtlRender, screen, within, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import userEvent from '@testing-library/user-event'
 import LeaveAuditReport from './LeaveAuditReport'
@@ -297,8 +297,9 @@ describe('LeaveAuditReport — By month', () => {
     render(<LeaveAuditReport />, { url: '/' })
     await screen.findByTestId('all-leave-by-month')
     const ada = cells(rowFor('Ada Zephyr'))
-    // Doctor, 12 months, Annual booked, Annual left, Sick, Other, Total, Since last break, arrow
-    const months = ada.slice(1, 13).map(Number)
+    // Doctor, 12 months, Annual booked, Annual left, Sick, Other, Total, Since last break, arrow.
+    // A month cell draws the leave as bars; its day count is what hover or a tap shows.
+    const months = [...rowFor('Ada Zephyr').querySelectorAll('[data-testid="month-cell"]')].map(b => Number(b.dataset.days))
     expect(months).toEqual([0, 0, 5, 2, 0, 2, 5, 0, 0, 0, 0, 0])
     expect(ada.slice(13, 18).map(Number)).toEqual([12, 10, 0, 2, 14])
     expect(months.reduce((s, d) => s + d, 0)).toBe(14)
@@ -306,6 +307,15 @@ describe('LeaveAuditReport — By month', () => {
 
     const bo = cells(rowFor('Bo Adams'))
     expect(bo.slice(13, 18).map(Number)).toEqual([0, 22, 2, 0, 2])
+  })
+
+  it('draws each leave as a bar in its months; a bar opens Leave details', async () => {
+    render(<LeaveAuditReport />, { url: '/' })
+    await screen.findByTestId('all-leave-by-month')
+    const bars = within(rowFor('Ada Zephyr')).getAllByTestId('leave-bar')
+    expect(bars.length).toBeGreaterThan(0)
+    fireEvent.click(bars[0])
+    expect(await screen.findByTestId('all-leave-detail')).toHaveTextContent('Exact dates')
   })
 
   it('fills in Since last break, with a Long chip past the threshold', async () => {
@@ -316,7 +326,7 @@ describe('LeaveAuditReport — By month', () => {
     expect(within(rowFor('Ada Zephyr')).getByText('Long')).toBeInTheDocument()
     expect(within(rowFor('Bo Adams')).getByText('None since joining')).toBeInTheDocument()
     expect(within(rowFor('Bo Adams')).queryByText('Long')).not.toBeInTheDocument()
-    expect(screen.getByTestId('by-month-legend').textContent).toMatch(/None.*1–2 days.*3–5 days.*6 or more.*More than 120 days/s)
+    expect(screen.getByTestId('by-month-legend').textContent).toMatch(/Annual.*Sick.*Pending.*Today.*More than 120 days/s)
   })
 
   it('opens a doctor\'s year from the name and the arrow, never from a month cell', async () => {

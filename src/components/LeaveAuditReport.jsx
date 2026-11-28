@@ -8,6 +8,8 @@ import { useSearchParams } from 'react-router-dom'
 import { ArrowUpDown, CalendarX2, Shapes } from 'lucide-react'
 import RowActionIcon from './RowActionIcon'
 import CancelLeaveModal from './CancelLeaveModal'
+import LeaveBlockDetail from './LeaveBlockDetail'
+import Modal from './Modal'
 import { CANCELLABLE_STATUSES } from '../lib/leaveCancellation'
 import { supabase } from '../lib/supabase'
 import { todayStr } from '../lib/dateRange'
@@ -36,6 +38,7 @@ import { QuickSelectButton } from './Toolbar'
 import ClearableInput from './ClearableInput'
 import FloatingActionMenu from './FloatingActionMenu'
 import { useFillToViewport } from '../lib/useFillToViewport'
+import { useIsDesktop } from '../lib/useIsDesktop'
 
 const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
 const STATUS_BADGE = {
@@ -230,7 +233,10 @@ export default function LeaveAuditReport({ leading = null }) {
     setError('')
     const [profilesRes, requestsRes] = await Promise.all([
       supabase.from('profiles').select('id, name, surname, category, contract_type, psych_subcategory, color_code, is_active').eq('role', 'doctor').eq('is_approved', true),
-      supabase.from('leave_requests').select('*').lte('date_from', dateTo).gte('date_to', dateFrom),
+      // The joined names are for Leave details (a bar in the Month view).
+      supabase.from('leave_requests')
+        .select('*, profiles!leave_requests_profile_id_fkey(name, surname, category, contract_type, color_code, avatar_url), reviewer:profiles!leave_requests_reviewed_by_fkey(name, surname), canceller:profiles!leave_requests_cancelled_by_fkey(name, surname), submitter:profiles!leave_requests_submitted_by_fkey(name, surname)')
+        .lte('date_from', dateTo).gte('date_to', dateFrom),
     ])
     if (profilesRes.error) { setError(profilesRes.error.message); setLoading(false); return }
     if (requestsRes.error) { setError(requestsRes.error.message); setLoading(false); return }
@@ -280,6 +286,36 @@ export default function LeaveAuditReport({ leading = null }) {
   const typeFilteredRequests = leaveTypeFilter.size === 0
     ? leaveRequests
     : leaveRequests.filter(lr => leaveTypeFilter.has(lr.leave_type))
+
+  // The Month view's bars: approved and pending leave, by doctor (after
+  // the leave type filter). Weekend off isn't time away.
+  const requestsByProfile = useMemo(() => {
+    const map = new Map()
+    for (const r of typeFilteredRequests) {
+      if (r.status !== 'approved' && r.status !== 'pending') continue
+      if (r.leave_type === 'weekend_exception') continue
+      if (!map.has(r.profile_id)) map.set(r.profile_id, [])
+      map.get(r.profile_id).push(r)
+    }
+    return map
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- typeFilteredRequests is rebuilt every render; its inputs are listed
+  }, [leaveRequests, leaveTypeFilter])
+
+  // Leave details for a tapped bar: a card beside it on a desktop, a window
+  // on a phone or when opened from a link (?lrequest=, e.g. My year's "Open
+  // in Team Leave").
+  const [detail, setDetail] = useState(null) // { request, rect }
+  const detailRef = useRef(null)
+  const isDesktopWide = useIsDesktop(768)
+  useDismissablePopover(Boolean(detail?.rect) && isDesktopWide, () => setDetail(null), detailRef)
+  const focusRequestId = searchParams.get('lrequest')
+  useEffect(() => {
+    if (!focusRequestId || loading) return
+    const request = leaveRequests.find(r => r.id === focusRequestId)
+    if (request) setDetail({ request, rect: null })
+    setSearchParams(prev => { const next = new URLSearchParams(prev); next.delete('lrequest'); return next }, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once the year's leave has loaded
+  }, [focusRequestId, loading, leaveRequests])
 
   const today = todayStr()
   const rows = useMemo(
@@ -450,6 +486,8 @@ export default function LeaveAuditReport({ leading = null }) {
                 onCancelLeave={request => setCancelTarget(withDoctorName(request))}
                 tableRef={tableRef}
                 tableFill={tableFill}
+                requestsByProfile={requestsByProfile}
+                onOpenRequest={(request, rect) => setDetail(d => (d?.request.id === request.id ? null : { request, rect }))}
               />
               <ByMonthLegend longBreakDays={longBreakDays} />
             </>
@@ -619,6 +657,35 @@ export default function LeaveAuditReport({ leading = null }) {
           )}
         </>
       )}
+      {/* Leave details for a tapped bar: beside it on a desktop; a window on
+          a phone or when opened from a link. Admins can cancel it here. */}
+      {detail && detail.rect && isDesktopWide && createPortal(
+        <div
+          ref={detailRef}
+          role="dialog"
+          aria-label="Leave details"
+          data-testid="all-leave-detail"
+          style={{ ...computeAnchoredPosition(detail.rect, 300, { maxHeight: 460 }), width: 300 }}
+          className="fixed z-50 max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-xl border border-edge bg-canvas-raised p-4 shadow-raised"
+        >
+          <LeaveBlockDetail
+            request={detail.request}
+            showClose
+            onClose={() => setDetail(null)}
+            canCancel
+            onCancelled={() => { setDetail(null); load() }}
+          />
+        </div>,
+        document.body,
+      )}
+      {detail && (!detail.rect || !isDesktopWide) && (
+        <Modal title="Leave details" onClose={() => setDetail(null)}>
+          <div data-testid="all-leave-detail">
+            <LeaveBlockDetail request={detail.request} canCancel onCancelled={() => { setDetail(null); load() }} />
+          </div>
+        </Modal>
+      )}
+
       {cancelTarget && (
         <CancelLeaveModal
           request={cancelTarget}

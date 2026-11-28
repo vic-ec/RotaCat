@@ -1,12 +1,16 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, fireEvent, within, cleanup } from '@testing-library/react'
 import { todayStr, addDays } from '../lib/dateRange'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import LeaveListView from './LeaveListView'
 
 // LeaveListView reads Team Leave's deep-link params (?ldoctor=…).
+function LocationProbe() {
+  const { search } = useLocation()
+  return <span data-testid="location-probe">{search}</span>
+}
 function renderList(url = '/leave?tab=team') {
-  return render(<MemoryRouter initialEntries={[url]}><LeaveListView /></MemoryRouter>)
+  return render(<MemoryRouter initialEntries={[url]}><LeaveListView /><LocationProbe /></MemoryRouter>)
 }
 
 // useAuth only gates the admin "Cancel" action (see the cancel tests at the
@@ -14,10 +18,8 @@ function renderList(url = '/leave?tab=team') {
 const mockAuth = vi.hoisted(() => ({ isAdmin: false }))
 vi.mock('../context/AuthContext', () => ({ useAuth: () => mockAuth }))
 
-// Who's away is the list view (the Matrix is the wide-screen default).
-async function switchToList() {
-  fireEvent.click((await screen.findAllByRole('button', { name: "Who's away" }))[0])
-}
+// Who's away is the only view (the Matrix's timeline is All Leave's now).
+async function switchToList() {}
 
 // This is the most security-sensitive part of the feature. LeaveListView is
 // deliberately a "dumb" renderer with zero role-conditional logic — the
@@ -83,32 +85,19 @@ describe('LeaveListView — query contract', () => {
     expect(methodCalls.some(c => c[0] === 'eq' || c[0] === 'match')).toBe(false)
   })
 
-  it('opens on the Matrix and remembers a switch to Who\'s away', async () => {
+  it('shows Who\'s away only: no Matrix switch', async () => {
     renderList()
-    await switchToList()
     expect(await screen.findByRole('region', { name: 'Away today' })).toBeInTheDocument()
-    expect(localStorage.getItem('rotacat:leaveTeamDesktopView')).toBe('away')
+    expect(screen.queryByRole('button', { name: 'Matrix' })).not.toBeInTheDocument()
   })
 
-  it('a Team Leave link (?ldoctor=&lyear=&lrequest=) opens the Matrix on that year with the leave selected, whatever view was remembered', async () => {
-    localStorage.setItem('rotacat:leaveTeamDesktopView', 'away')
-    mockData.rows = [row('r1', { status: 'approved', profile_id: 'doc-1', date_from: '2025-06-02', date_to: '2025-06-06' })]
-    const original = Element.prototype.scrollIntoView
-    const scrolled = []
-    Element.prototype.scrollIntoView = function scrollIntoView() { scrolled.push(this.getAttribute('data-request-id')) }
-    try {
-      renderList('/leave?tab=team&sub=current&ldoctor=doc-1&lyear=2025&lrequest=r1')
-      expect(await screen.findByText('2025')).toBeInTheDocument()
-      expect(screen.queryByRole('region', { name: 'Away today' })).not.toBeInTheDocument()
-      // The side panel shows the leave's details, under "On leave now".
-      expect(screen.getByTestId('matrix-detail')).toHaveTextContent('Leave details')
-      expect(screen.getAllByText(/Doc r1/).length).toBeGreaterThan(1)
-      await waitFor(() => expect(scrolled).toContain('r1'))
-      // The remembered choice is left as it was.
-      expect(localStorage.getItem('rotacat:leaveTeamDesktopView')).toBe('away')
-    } finally {
-      Element.prototype.scrollIntoView = original
-    }
+  it('an old Matrix link (?ldoctor=&lyear=&lrequest=) is sent to All Leave on that year, with the request', async () => {
+    renderList('/leave?tab=team&sub=current&ldoctor=doc-1&lyear=2025&lrequest=r1')
+    await waitFor(() => expect(screen.getByTestId('location-probe').textContent).toMatch(/sub=all/))
+    const search = screen.getByTestId('location-probe').textContent
+    expect(search).toMatch(/lyear=2025/)
+    expect(search).toMatch(/lrequest=r1/)
+    expect(search).not.toMatch(/ldoctor/)
   })
 
   it('treats a remembered Table choice as Who\'s away', async () => {

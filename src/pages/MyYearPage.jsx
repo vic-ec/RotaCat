@@ -295,8 +295,8 @@ function MyYear({ profileId, own }) {
       {formOpen && (
         <Modal title={own ? 'Request leave' : `Capture leave for ${firstName}`} onClose={() => setFormOpen(false)} centered>
           {own
-            ? <LeaveRequestForm onSubmitted={() => { setVersion(v => v + 1); setFormOpen(false) }} />
-            : <LeaveRequestForm captureOnly initialSubjectId={profileId} initialLeaveType="sick" onSubmitted={() => setVersion(v => v + 1)} />}
+            ? <LeaveRequestForm onCancel={() => setFormOpen(false)} onSubmitted={() => { setVersion(v => v + 1); setFormOpen(false) }} />
+            : <LeaveRequestForm onCancel={() => setFormOpen(false)} captureOnly initialSubjectId={profileId} initialLeaveType="sick" onSubmitted={() => setVersion(v => v + 1)} />}
         </Modal>
       )}
 

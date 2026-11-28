@@ -29,11 +29,11 @@ export default function StatusChangeConfirmModal({ firstName, nextActive, saving
       maxWidthClassName="md:max-w-[440px]"
       footer={
         <>
-          <button type="button" onClick={onClose} disabled={saving} className="btn-secondary text-sm">
-            Cancel
-          </button>
           <button type="button" onClick={onConfirm} disabled={saving} className="btn-primary text-sm">
             {saving ? 'Saving…' : 'Continue'}
+          </button>
+          <button type="button" onClick={onClose} disabled={saving} className="btn-secondary text-sm">
+            Cancel
           </button>
         </>
       }

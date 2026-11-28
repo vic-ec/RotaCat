@@ -94,10 +94,10 @@ export default function NewLocumModal({ adminId, onDone, onClose }) {
       centered
       footer={
         <>
-          <button type="button" className="btn-secondary px-3" onClick={onClose} disabled={submitting}>Cancel</button>
           <button type="submit" form="new-locum-form" className="btn-primary flex-1" disabled={submitting}>
             {submitting ? 'Saving…' : wantsAccount ? 'Create account & add' : 'Add to the shift'}
           </button>
+          <button type="button" className="btn-secondary px-3" onClick={onClose} disabled={submitting}>Cancel</button>
         </>
       }
     >

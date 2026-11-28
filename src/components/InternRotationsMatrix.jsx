@@ -808,8 +808,8 @@ export default function InternRotationsMatrix({
       maxWidthClassName="md:max-w-[420px]"
       footer={
         <>
-          <button type="button" onClick={() => setRemovingRotation(null)} className="btn-secondary text-sm">No</button>
           <button type="button" onClick={() => handleBlockRemove(removingRotation)} className="btn-danger text-sm">Yes, delete</button>
+          <button type="button" onClick={() => setRemovingRotation(null)} className="btn-secondary text-sm">No</button>
         </>
       }
     >

@@ -1112,7 +1112,7 @@ export default function RosterGridPage() {
           {/* Approved on the spot, like Team Leave's Capture leave. Stays
               open so several can be entered in one sitting from the paper
               roster; the grid's leave re-reads after each. */}
-          <LeaveRequestForm
+          <LeaveRequestForm onCancel={() => setAbsenceOpen(false)}
             captureOnly
             initialDateFrom={monthBounds(rosterMonth.year, rosterMonth.month).start}
             onSubmitted={refreshLeave}

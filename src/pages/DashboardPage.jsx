@@ -618,7 +618,7 @@ export default function DashboardPage() {
 
           {leaveForm === 'request' && (
             <Modal title="Request leave" onClose={() => setLeaveForm(null)} centered>
-              <LeaveRequestForm onSubmitted={() => { setLeaveForm(null); loadDoctorWidgets({ silent: true }) }} />
+              <LeaveRequestForm onCancel={() => setLeaveForm(null)} onSubmitted={() => { setLeaveForm(null); loadDoctorWidgets({ silent: true }) }} />
             </Modal>
           )}
 
@@ -749,7 +749,7 @@ export default function DashboardPage() {
             {lateOpen && <LateArrivalModal onClose={() => setLateOpen(false)} />}
             {leaveForm === 'capture' && (
               <Modal title="Capture leave for a doctor" onClose={() => setLeaveForm(null)} centered>
-                <LeaveRequestForm captureOnly initialLeaveType="sick" onSubmitted={() => { loadAdminWidgets({ silent: true }) }} />
+                <LeaveRequestForm onCancel={() => setLeaveForm(null)} captureOnly initialLeaveType="sick" onSubmitted={() => { loadAdminWidgets({ silent: true }) }} />
               </Modal>
             )}
             {pendingLeaveCount === 0 && attentionItems.length === 0 ? (

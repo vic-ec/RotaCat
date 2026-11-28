@@ -100,8 +100,8 @@ describe('LeaveListView — query contract', () => {
       renderList('/leave?tab=team&sub=current&ldoctor=doc-1&lyear=2025&lrequest=r1')
       expect(await screen.findByText('2025')).toBeInTheDocument()
       expect(screen.queryByRole('region', { name: 'Away today' })).not.toBeInTheDocument()
-      // The side panel shows the leave, not the resting "On leave now".
-      expect(screen.queryByText('On leave now')).not.toBeInTheDocument()
+      // The side panel shows the leave's details, under "On leave now".
+      expect(screen.getByTestId('matrix-detail')).toHaveTextContent('Leave details')
       expect(screen.getAllByText(/Doc r1/).length).toBeGreaterThan(1)
       await waitFor(() => expect(scrolled).toContain('r1'))
       // The remembered choice is left as it was.

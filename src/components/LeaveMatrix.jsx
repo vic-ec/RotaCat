@@ -9,7 +9,7 @@ import Modal from './Modal'
 import DateStepper from './DateStepper'
 import ClearableInput from './ClearableInput'
 import Tag from './Tag'
-import DoctorChip from './DoctorChip'
+import FilterPanel from './FilterPanel'
 import SectionLabel from './SectionLabel'
 import LeaveBlockDetail from './LeaveBlockDetail'
 import { todayStr, MONTH_ABBR, formatWeekdayDate } from '../lib/dateRange'
@@ -182,7 +182,9 @@ function DoctorRows({ row, year, selected, onSelectDoctor, onSelectBlock, gridTe
 }
 
 // The compact "who's on leave today" default panel state.
-function OnLeaveNow({ activeByGroup }) {
+// Who is on leave today, by group. Each name is a plain link (no chip):
+// it opens that person's leave in the Leave details card underneath.
+function OnLeaveNow({ activeByGroup, onOpen, selectedId = null }) {
   const today = todayStr()
   const groups = LEAVE_GROUP_OPTIONS.filter(o => activeByGroup.has(o.key))
   return (
@@ -197,11 +199,21 @@ function OnLeaveNow({ activeByGroup }) {
             <p className="flex items-center gap-1.5 text-xs font-medium text-ink-muted">
               <GroupSwatch groupKey={o.key} /> {o.label}
             </p>
-            <div className="mt-1.5 flex flex-wrap gap-1">
+            <ul className="mt-1.5 space-y-1">
               {activeByGroup.get(o.key).map(doctor => (
-                <DoctorChip key={doctor.id} profile={doctor} />
+                <li key={doctor.id}>
+                  <button
+                    type="button"
+                    onClick={() => onOpen?.(doctor, o.key)}
+                    data-testid="on-leave-now-name"
+                    className={`flex items-center gap-2 text-left text-sm underline decoration-slate-line underline-offset-2 hover:text-accent hover:decoration-accent ${selectedId === doctor.id ? 'font-semibold text-accent decoration-accent' : 'text-ink'}`}
+                  >
+                    <span aria-hidden="true" className="h-2 w-2 flex-shrink-0 rounded-full" style={{ backgroundColor: doctor.color_code || 'rgb(var(--color-ink-muted))' }} />
+                    {fullName(doctor)}
+                  </button>
+                </li>
               ))}
-            </div>
+            </ul>
           </div>
         ))
       )}
@@ -315,12 +327,22 @@ export default function LeaveMatrix({ requests, controls, leading = null, canCan
   const focusKey = focus ? `${focus.doctorId || ''}|${focus.year || ''}|${focus.requestId || ''}` : ''
   const scrolledFor = useRef('')
 
+  // Filter: Category (the doctor's leave column) and Leave type (group),
+  // as Who's away has them.
+  const [categoryFilter, setCategoryFilter] = useState(() => new Set())
+  const [leaveTypeFilter, setLeaveTypeFilter] = useState(() => new Set())
+  const filterGroups = [
+    { key: 'category', label: 'Category', options: CATEGORY_GROUPS.map(c => ({ value: c.key, label: c.label })), selected: categoryFilter, onChange: setCategoryFilter },
+    { key: 'leaveType', label: 'Leave type', options: LEAVE_GROUP_OPTIONS.map(o => ({ value: o.key, label: o.label })), selected: leaveTypeFilter, onChange: setLeaveTypeFilter },
+  ]
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase()
-    const all = buildDoctorLeaveRows(requests, year)
+    const shown = leaveTypeFilter.size ? requests.filter(r => leaveTypeFilter.has(leaveTypeGroupKey(r.leave_type))) : requests
+    let all = buildDoctorLeaveRows(shown, year)
+    if (categoryFilter.size) all = all.filter(r => categoryFilter.has(groupKeyForDoctor(r.doctor)))
     if (!q) return all
     return all.filter(r => `${r.doctor.surname || ''} ${r.doctor.name || ''} ${r.doctor.surname || ''}`.toLowerCase().includes(q))
-  }, [requests, year, search])
+  }, [requests, year, search, categoryFilter, leaveTypeFilter])
   const activeByGroup = useMemo(() => leaveActiveOn(requests, todayStr()), [requests])
   const rowsByDoctorId = useMemo(() => new Map(rows.map(r => [r.doctor.id, r])), [rows])
 
@@ -337,6 +359,13 @@ export default function LeaveMatrix({ requests, controls, leading = null, canCan
   const currentMonthIndex = Number(todayStr().slice(5, 7)) - 1
 
   const selectedDoctorRow = selected?.kind === 'doctor' ? rowsByDoctorId.get(selected.doctorId) : null
+  // A name under "On leave now": the leave of that group covering today.
+  function openOnLeaveNow(doctor, groupKey) {
+    const today = todayStr()
+    const request = requests.find(r => r.profile_id === doctor.id && r.status === 'approved'
+      && r.date_from <= today && r.date_to >= today && leaveTypeGroupKey(r.leave_type) === groupKey)
+    if (request) setSelected({ kind: 'block', request })
+  }
 
   // Bring the focused bar (or, failing that, the doctor's row) into view;
   // again once the grid has measured its width, since the bars move then.
@@ -364,9 +393,7 @@ export default function LeaveMatrix({ requests, controls, leading = null, canCan
     />
   ) : selectedDoctorRow ? (
     <DoctorDetail row={selectedDoctorRow} onSelectBlock={r => setSelected({ kind: 'block', request: r })} onClose={() => setSelected(null)} />
-  ) : (
-    <OnLeaveNow activeByGroup={activeByGroup} />
-  )
+  ) : null
 
   const modalTitle = selected?.kind === 'block'
     ? 'Leave details'
@@ -394,9 +421,8 @@ export default function LeaveMatrix({ requests, controls, leading = null, canCan
             icon={<Search className="h-4 w-4" />}
           />
         </div>
+        <FilterPanel groups={filterGroups} />
         <div className="flex flex-shrink-0 items-center gap-2">
-          <DateStepper unit="year" year={year} onChange={setYear} nowrap />
-          <div className="h-5 w-px bg-slate-line" aria-hidden="true" />
           {/* The colour key behind one icon, as the Rotations tables keep
               theirs, rather than a line of swatches of its own. */}
           <LegendSheet
@@ -467,15 +493,26 @@ export default function LeaveMatrix({ requests, controls, leading = null, canCan
         )}
       </div>
 
-      {/* Desktop sticky side panel */}
+      {/* Desktop sticky side panel: the year (as the Annual and Special
+          planners keep their month), who is on leave now, and under it the
+          selected leave's (or doctor's) details. */}
       <aside className="hidden lg:sticky lg:top-4 lg:block lg:w-72 lg:flex-shrink-0">
-        <div className="card max-h-[calc(100dvh-2rem)] overflow-y-auto p-4">{panelBody}</div>
+        <div className="max-h-[calc(100dvh-2rem)] space-y-3 overflow-y-auto">
+          <div className="card p-4">
+            <p className="text-section-label uppercase text-ink-muted">Team leave · year</p>
+            <div className="mt-1.5" data-testid="matrix-year">
+              <DateStepper unit="year" year={year} onChange={setYear} showToday={false} centered />
+            </div>
+            <div className="mt-4"><OnLeaveNow activeByGroup={activeByGroup} onOpen={openOnLeaveNow} selectedId={selected?.kind === 'block' ? selected.request.profile_id : null} /></div>
+          </div>
+          {panelBody && <div className="card p-4" data-testid="matrix-detail">{panelBody}</div>}
+        </div>
       </aside>
 
       {/* Mobile: "on leave now" always visible as a stacked card */}
       {!selected && (
         <div className="lg:hidden">
-          <div className="card p-3"><OnLeaveNow activeByGroup={activeByGroup} /></div>
+          <div className="card p-3"><OnLeaveNow activeByGroup={activeByGroup} onOpen={openOnLeaveNow} /></div>
         </div>
       )}
 

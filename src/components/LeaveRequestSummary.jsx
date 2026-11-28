@@ -15,6 +15,9 @@ import { parseLocalDate } from '../lib/dateRange'
 export default function LeaveRequestSummary({
   request, fullName, categoryLabel, totalDays, annualLeaveDays,
   publicHolidayFrom, publicHolidayTo,
+  // `periodOnly`: the dates alone, for a card that lists the day counts
+  // itself just below (LeaveBlockDetail).
+  periodOnly = false,
 }) {
   const from = parseLocalDate(request.date_from)
   const to = parseLocalDate(request.date_to)
@@ -33,9 +36,9 @@ export default function LeaveRequestSummary({
       <div>
         <SectionLabel>Requested period</SectionLabel>
         <p className="text-sm text-ink">
-          {naturalLeavePeriodLabel(request.date_from, request.date_to)} · {totalDays} calendar day{totalDays === 1 ? '' : 's'}
+          {naturalLeavePeriodLabel(request.date_from, request.date_to)}{!periodOnly && ` · ${totalDays} calendar day${totalDays === 1 ? '' : 's'}`}
         </p>
-        {annualLeaveDays != null && (
+        {!periodOnly && annualLeaveDays != null && (
           <p className="mt-0.5 text-xs text-ink-muted">{annualLeaveDays} annual-leave day{annualLeaveDays === 1 ? '' : 's'}</p>
         )}
         {crossesMonth && (

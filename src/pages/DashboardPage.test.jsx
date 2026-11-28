@@ -453,7 +453,6 @@ describe('DashboardPage — Log late arrival', () => {
 describe('DashboardPage — admin refresh cadence', () => {
   beforeEach(() => {
     liveRefreshes.length = 0
-    getDashboardHoursWarnings.mockResolvedValue([])
     fetchAdminAttention.mockReset().mockResolvedValue([])
   })
 

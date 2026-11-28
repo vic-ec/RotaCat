@@ -13,9 +13,7 @@ import { LegendIcon } from './PlannerIcons'
 import FloatingActionMenu from './FloatingActionMenu'
 import DateStepper from './DateStepper'
 import RotationSequenceRow, { MonthLetterHeader } from './RotationSequenceRow'
-import {
-  groupRotationsByDoctorId, upcomingRotationStatus, completedRotationStatus, monthSpan,
-} from '../lib/internRotations'
+import { groupRotationsByDoctorId, upcomingRotationStatus, completedRotationStatus, monthSpan, CATEGORY_GROUP_ORDER, categoryGroupKey } from '../lib/internRotations'
 import { rotationTypeKey, rotationTypeShortName, ROTATION_TYPE_KEY_OPTIONS, ROTATION_TYPE_COLOR } from '../lib/staffDefaults'
 import { todayStr, MONTH_ABBR, parseLocalDate } from '../lib/dateRange'
 import { useIsDesktop } from '../lib/useIsDesktop'
@@ -24,7 +22,6 @@ import { useFillToViewport } from '../lib/useFillToViewport'
 const MIN_MONTH_COL_WIDTH = 56 // px — same floor as InternRotationsMatrix's own grid
 const LABEL_COL_WIDTH = 200 // px
 
-const CATEGORY_GROUP_ORDER = ['Intern', 'Registrar']
 const CATEGORY_GROUP_LABEL = { Intern: 'Interns', Registrar: 'Registrars' }
 const CATEGORY_FILTER_OPTIONS = [
   { value: 'all', label: 'All categories' },
@@ -32,10 +29,6 @@ const CATEGORY_FILTER_OPTIONS = [
   { value: 'Registrar', label: 'Registrar' },
 ]
 const NO_ROTATIONS_GROUP_KEY = 'no-rotations'
-
-function categoryGroupKey(doctor) {
-  return CATEGORY_GROUP_ORDER.includes(doctor.category) ? doctor.category : 'Intern'
-}
 
 function matchesSearch(doctor, search) {
   if (!search.trim()) return true

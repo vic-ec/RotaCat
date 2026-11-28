@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { fullDoctorName } from '../lib/doctorNames'
 import { ExternalLink, Check } from 'lucide-react'
 import { monthsForYear } from '../lib/leaveYearGrid'
-import { todayStr, parseLocalDate, addDays } from '../lib/dateRange'
+import { todayStr, addDays, formatShortDate } from '../lib/dateRange'
 import { weekendCoverageSummary, formatWeekendRange, weekendExceptionsForMonth, nextSaturdayToRequestOff } from '../lib/weekendPlanner'
 import { useAuth } from '../context/AuthContext'
 import LeaveRequestForm from './LeaveRequestForm'
@@ -22,10 +22,6 @@ const HEALTH_STYLE = {
   green: { square: 'bg-success-bg ring-1 ring-inset ring-success/45', swatch: 'bg-success', label: 'Fully planned' },
   amber: { square: 'bg-flagAmber-bg ring-1 ring-inset ring-flagAmber/45', swatch: 'bg-flagAmber', label: 'Needs staff' },
   red: { square: 'bg-flagRed-bg ring-1 ring-inset ring-flagRed/45', swatch: 'bg-flagRed', label: 'Empty' },
-}
-
-function formatShortDate(dateStr) {
-  return parseLocalDate(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 }
 
 // The Weekend Planner's year-overview landing page for admins/clerks — a

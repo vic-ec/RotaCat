@@ -76,3 +76,8 @@ export function buildDoctorFullNames(doctors) {
   }
   return fullNames
 }
+
+// "Name Surname" from a profile-shaped row; empty parts are left out and
+// the ends trimmed, so a missing first name gives just the surname. Safe
+// on null.
+export const fullName = p => `${p?.name || ''} ${p?.surname || ''}`.trim()

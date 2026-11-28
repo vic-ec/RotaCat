@@ -4,6 +4,8 @@ import ClearableInput from './ClearableInput'
 import FilterPanel from './FilterPanel'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
+import { ChevronDown as ChevronDownIcon, Search as SearchIcon, X as CloseIcon } from 'lucide-react'
+import CheckIcon from './icons/CheckIcon'
 
 // Above this many options, a facet/group grows a search box rather than
 // staying a flat list — same threshold and rationale as FilterPanel's
@@ -16,14 +18,6 @@ function filterByQuery(options, query) {
   return options.filter(opt => opt.label.toLowerCase().includes(q))
 }
 
-function SearchIcon(props) {
-  return (
-    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="11" cy="11" r="8" />
-      <path d="m21 21-4.3-4.3" />
-    </svg>
-  )
-}
 function FiltersIcon(props) {
   return (
     <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -39,28 +33,6 @@ function ClearIcon(props) {
     </svg>
   )
 }
-function CloseIcon(props) {
-  return (
-    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M6 6l12 12M18 6L6 18" />
-    </svg>
-  )
-}
-function ChevronDownIcon(props) {
-  return (
-    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
-    </svg>
-  )
-}
-function CheckIcon(props) {
-  return (
-    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-    </svg>
-  )
-}
-
 // The app's one "quick-select pill" pattern — icon + label, a rectangle
 // with rounded corners (never a full pill), opening a small anchored
 // popover that closes on pick or on an outside click. This is what

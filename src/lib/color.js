@@ -19,7 +19,7 @@ export function randomAvatarColor() {
   return AVATAR_COLOR_PALETTE[Math.floor(Math.random() * AVATAR_COLOR_PALETTE.length)]
 }
 
-function hexToHsl(hex) {
+export function hexToHsl(hex) {
   const r = parseInt(hex.slice(1, 3), 16) / 255
   const g = parseInt(hex.slice(3, 5), 16) / 255
   const b = parseInt(hex.slice(5, 7), 16) / 255
@@ -39,7 +39,7 @@ function hexToHsl(hex) {
   return { h: h * 360, s: s * 100, l: l * 100 }
 }
 
-function hslToHex(h, s, l) {
+export function hslToHex(h, s, l) {
   s /= 100; l /= 100
   const c = (1 - Math.abs(2 * l - 1)) * s
   const x = c * (1 - Math.abs(((h / 60) % 2) - 1))

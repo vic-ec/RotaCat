@@ -30,12 +30,14 @@ import {
 import { applyHoursChange, fetchInternRotationsForDoctorIds } from '../lib/internRotations'
 import { CATEGORY_LABELS } from '../lib/categoryLabels'
 import { setDoctorActiveStatus } from '../lib/staffStatus'
-import { Eye, Check, X, FileUser, MessageCircleQuestionMark, CircleCheck, Plus, ShieldAlert } from 'lucide-react'
+import { Eye, Check, X, FileUser, MessageCircleQuestionMark, CircleCheck, Plus, ShieldAlert, ChevronDown as ChevronDownIcon } from 'lucide-react'
 import InfoPopover from '../components/InfoPopover'
 import { fetchProfilesById } from '../lib/changeLog'
 import { buildRequestHistory, filterRequestHistory, historyFiltersActive, EMPTY_HISTORY_FILTERS, HISTORY_STATUS_OPTIONS, HISTORY_TYPE_OPTIONS } from '../lib/requestHistory'
 import RequestRow from '../components/RequestRow'
 import { notifyBadgesChanged } from '../lib/navBadges'
+import PhoneIcon from '../components/icons/PhoneIcon'
+import EmailIcon from '../components/icons/EmailIcon'
 
 // ── Display label maps ────────────────────────
 const ROLE_LABELS = {
@@ -2214,30 +2216,6 @@ function ZapIcon(props) {
   return (
     <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
       <path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z" />
-    </svg>
-  )
-}
-
-function ChevronDownIcon(props) {
-  return (
-    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
-    </svg>
-  )
-}
-
-function PhoneIcon(props) {
-  return (
-    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h1.5a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106a2.25 2.25 0 00-2.288.573l-.766.766a11.25 11.25 0 01-6.198-6.198l.766-.766a2.25 2.25 0 00.572-2.288L6.65 3.852a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 5.25v1.5z" />
-    </svg>
-  )
-}
-
-function EmailIcon(props) {
-  return (
-    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
     </svg>
   )
 }

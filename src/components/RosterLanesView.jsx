@@ -4,7 +4,7 @@ import { rosterTextSize, rosterTextScale } from '../lib/rosterTextSize'
 import { labelForShiftCode } from '../lib/shiftLabels'
 import { labelForLeaveCategory } from '../lib/leaveYearGrid'
 import { entryAbsence, absenceSummary } from '../lib/rosterVacancy'
-import { todayStr } from '../lib/dateRange'
+import { todayStr, dayOfWeek } from '../lib/dateRange'
 import { useFillToViewport } from '../lib/useFillToViewport'
 import PublicHolidayBadge from './PublicHolidayBadge'
 import { adjustedTimesLabel } from '../lib/shiftTimes'
@@ -150,11 +150,6 @@ function useTodayBox(scrollRef, todayHeadRef, deps) {
 function categoryRank(category) {
   const i = CATEGORY_ORDER.indexOf(category)
   return i === -1 ? CATEGORY_ORDER.length : i
-}
-
-function dayOfWeek(dateStr) {
-  const [y, m, d] = dateStr.split('-').map(Number)
-  return new Date(y, m - 1, d).getDay()
 }
 
 // A short week — the first and last of a month — padded out to a full

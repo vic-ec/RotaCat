@@ -2,8 +2,7 @@ import { Link } from 'react-router-dom'
 import { formatWeekdayDateShort } from '../../lib/dateRange'
 import { SHIFT_GROUPS } from '../../lib/myYear'
 import { rosterLinkForDate } from '../../lib/myYearData'
-
-const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
+import { plural } from '../../lib/text'
 
 export default function MyYearShifts({ year, shifts, onCall, lieu, holidayRows, data, hoursSummaryTo }) {
   const max = Math.max(1, ...SHIFT_GROUPS.map(g => shifts.counts[g.key]))

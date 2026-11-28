@@ -1,4 +1,5 @@
 import { createPortal } from 'react-dom'
+import { X as CloseIcon } from 'lucide-react'
 // Shared bottom-sheet action-list shell — fixed inset-0, scrim,
 // items-end on mobile / items-center on desktop, rounded-b-none
 // sm:rounded-b-lg — for short action lists (per-card ⋮ menus, page-level
@@ -70,14 +71,6 @@ function BackIcon(props) {
   return (
     <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
       <path d="M15 18l-6-6 6-6" />
-    </svg>
-  )
-}
-
-function CloseIcon(props) {
-  return (
-    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M6 6l12 12M18 6L6 18" />
     </svg>
   )
 }

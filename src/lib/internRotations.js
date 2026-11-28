@@ -427,3 +427,17 @@ export function completedRotationStatus(rotations) {
   }
   return { situation: 'multi-block', totalMonths, blockCount: blocks.length }
 }
+
+// The Rotations planner's sections (InternRotationsMatrix and
+// RotationStatusTable). COSMO was retired as a separate staff_category in
+// Aug 2026 (folded into Intern — see InternRotationsPlanner.jsx) so the
+// doctor pool is only ever Intern/Registrar now. A doctor never moves
+// section when their current rotation changes — their category decides
+// it, once, same as the Staff list's own category grouping.
+export const CATEGORY_GROUP_ORDER = ['Intern', 'Registrar']
+
+// Which section a doctor sits in: their category when it is one of
+// CATEGORY_GROUP_ORDER, else Intern.
+export function categoryGroupKey(doctor) {
+  return CATEGORY_GROUP_ORDER.includes(doctor.category) ? doctor.category : 'Intern'
+}

@@ -41,6 +41,12 @@ export default defineConfig({
         ]
       },
       workbox: {
+        // Workbox's own default (the app's code, styles and pages), plus the
+        // two login mascots: without them the login page opened from the
+        // offline copy showed no cat whenever the network couldn't serve
+        // the image (offline, or a lapsed Vercel login on a protected
+        // preview). About 140 kB; no other images are precached.
+        globPatterns: ['**/*.{js,wasm,css,html}', 'assets/rotacat-mascot-*.webp'],
         // Cache Supabase API responses so doctors can view their
         // shifts even with patchy hospital wifi / signal
         runtimeCaching: [

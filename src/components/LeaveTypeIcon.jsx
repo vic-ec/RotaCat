@@ -70,10 +70,11 @@ export default function LeaveTypeIcon({ leaveType, groupKey, variant = 'box', si
   )
 }
 
-// A leave type as a filled pill: its group's colour, its icon and its short
-// code ("SK"), for a dense grid (the roster's Leave and Course columns)
-// where a name sits beside it. The fill is the group's ink (lifted at night)
-// and the text the raised card colour, so it reads on both themes.
+// A leave type as a pill: its icon and its short code ("SK"), for a dense
+// grid (the roster's Leave and Course columns) or a list row where a name
+// sits beside it. The same light tint as the icon box above — the group's
+// colour at 14% behind, 45% for the outline, full for the icon and code —
+// so pills and boxes read as one family, on both themes.
 export function LeaveTypePill({ leaveType, className = '' }) {
   const group = leaveTypeGroupKey(leaveType)
   const Icon = (leaveType && TYPE_ICON[leaveType]) || GROUP_ICON[group] || Coffee
@@ -82,8 +83,12 @@ export function LeaveTypePill({ leaveType, className = '' }) {
     <span
       data-testid="leave-type-pill"
       title={LEAVE_TYPE_LABELS[leaveType] || undefined}
-      className={`inline-flex flex-shrink-0 items-center gap-0.5 rounded-full px-1.5 py-px text-[0.75em] font-bold leading-tight ${className}`}
-      style={{ backgroundColor: leaveGroupInk(group), color: 'rgb(var(--color-canvas-raised))' }}
+      className={`inline-flex flex-shrink-0 items-center gap-0.5 rounded-full border px-1.5 py-px text-[0.75em] font-bold leading-tight ${className}`}
+      style={{
+        backgroundColor: `color-mix(in srgb, ${leaveGroupInk(group)} 14%, transparent)`,
+        borderColor: `color-mix(in srgb, ${leaveGroupInk(group)} 45%, transparent)`,
+        color: leaveGroupInk(group),
+      }}
     >
       <Icon className="h-[1em] w-[1em] flex-shrink-0" aria-hidden="true" />
       {code}

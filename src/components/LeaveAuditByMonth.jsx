@@ -45,7 +45,7 @@ function monthSlices(requests, year, month) {
   return out
 }
 
-function MonthBars({ requests, year, month, onOpen }) {
+function MonthBars({ requests, year, month, onOpen, twoLanes = false }) {
   const today = todayStr()
   const mm = String(month + 1).padStart(2, '0')
   const dim = new Date(year, month + 1, 0).getDate()
@@ -53,7 +53,7 @@ function MonthBars({ requests, year, month, onOpen }) {
   return (
     <div className="pointer-events-none absolute inset-0">
       {todayHere && (
-        <span aria-hidden="true" className="absolute bottom-0 top-0 z-[1] w-px bg-accent/60" style={{ left: `${((Number(today.slice(8, 10)) - 0.5) / dim) * 100}%` }} />
+        <span aria-hidden="true" data-testid="today-line" className="absolute bottom-0 top-0 z-[1] w-[2px] -translate-x-1/2 bg-accent" style={{ left: `${((Number(today.slice(8, 10)) - 0.5) / dim) * 100}%` }} />
       )}
       {monthSlices(requests, year, month).map(({ request, left, width, first }) => {
         const ink = leaveGroupInk(leaveTypeGroupKey(request.leave_type))
@@ -68,7 +68,11 @@ function MonthBars({ requests, year, month, onOpen }) {
             onClick={e => { e.stopPropagation(); onOpen(request, e.currentTarget.getBoundingClientRect()) }}
             title={`${leaveTypeLabelWithCode(request.leave_type)}${pending ? ' (pending)' : ''}: ${formatShortDateRange(request.date_from, request.date_to)}`}
             aria-label={`${LEAVE_TYPE_LABELS[request.leave_type] || 'Leave'}${pending ? ', pending' : ''}, ${formatShortDateRange(request.date_from, request.date_to)}`}
-            className={`pointer-events-auto absolute z-[2] flex items-center justify-center overflow-hidden rounded-sm text-[9px] font-bold leading-none ${pending ? 'top-[25px] h-[8px]' : 'top-[6px] h-[17px]'}`}
+            // On the row's midline; a doctor with pending leave gets two
+            // lanes: approved above, pending (dashed, thin) below.
+            className={`pointer-events-auto absolute z-[2] flex items-center justify-center overflow-hidden rounded-sm text-[9px] font-bold leading-none ${
+              pending ? 'top-[25px] h-[8px]' : twoLanes ? 'top-[6px] h-[17px]' : 'top-1/2 h-[17px] -translate-y-1/2'
+            }`}
             style={{
               left: `${left}%`,
               width: `max(3px, ${width}%)`,
@@ -178,6 +182,9 @@ export default function LeaveAuditByMonth({
 }) {
   const swatch = useSwatch()
   const isDesktop = useIsDesktop(768)
+  // The selected doctor's row (a tap on the row; again clears it), tinted
+  // as Hours Summary's is.
+  const [selectedId, setSelectedId] = useState(null)
   // { row, month, rect, pinned }
   const [open, setOpen] = useState(null)
   const popoverRef = useRef(null)
@@ -222,7 +229,7 @@ export default function LeaveAuditByMonth({
             <tr className="text-[10px] uppercase tracking-wide text-ink-muted">
               <th scope="col" className="sticky left-0 z-20 border-b border-r border-slate-line bg-canvas-sunken px-2 py-1.5 text-left">Doctor</th>
               {MONTH_ABBR.map((m, i) => (
-                <th key={m} scope="col" title={MONTH_NAMES[i]} className={`border-b border-slate-line bg-canvas-sunken px-1 py-1.5 text-center font-medium ${todayStr().startsWith(`${year}-${String(i + 1).padStart(2, '0')}`) ? 'text-accent' : ''}`}>{m}</th>
+                <th key={m} scope="col" title={MONTH_NAMES[i]} className={`border-b border-slate-line bg-canvas-sunken px-1 py-1.5 text-center font-medium ${i > 0 ? 'border-l' : ''} ${todayStr().startsWith(`${year}-${String(i + 1).padStart(2, '0')}`) ? 'text-accent' : ''}`}>{m}</th>
               ))}
               {['Annual booked', 'Annual left', 'Sick', 'Other', 'Total days'].map((h, i) => (
                 <th key={h} scope="col" className={`border-b border-slate-line bg-canvas-sunken px-1 py-1.5 text-center align-bottom font-medium ${i === 0 ? 'border-l' : ''}`}>{h}</th>
@@ -253,10 +260,21 @@ export default function LeaveAuditByMonth({
                   const subtype = row.contractType === 'Junior_Doctor_Overtime' ? OT_SUBTYPE_SHORT[row.psychSubcategory] : null
                   const underName = [columnLabelOf(row.profileId), subtype, row.contractType === 'five_eighths' ? CONTRACT_TYPE_LABEL.five_eighths : null].filter(Boolean).join(' · ')
                   return (
-                    <tr key={row.profileId} className="group">
-                      <td title={fullName} className="sticky left-0 z-[1] border-b border-b-slate-hairline border-r border-r-slate-line bg-canvas px-2 py-1.5 align-top group-hover:bg-canvas-cool">
+                    <tr
+                      key={row.profileId}
+                      className="group cursor-pointer"
+                      aria-selected={selectedId === row.profileId}
+                      data-testid="all-leave-row"
+                      onClick={() => setSelectedId(id => (id === row.profileId ? null : row.profileId))}
+                    >
+                      {/* Above the bars (z-[4]), so they slide under it when
+                          the table scrolls sideways. */}
+                      <td title={fullName} className={`sticky left-0 z-[4] border-b border-b-slate-hairline border-r border-r-slate-line px-2 py-1.5 align-top ${
+                        selectedId === row.profileId ? 'bg-accent-tint shadow-[inset_3px_0_0_rgb(var(--color-accent))]' : 'bg-canvas group-hover:bg-canvas-cool'
+                      }`}>
                         <Link
                           to={yearTo}
+                          onClick={e => e.stopPropagation()}
                           aria-label={`${fullName}’s year`}
                           className="inline-block max-w-full truncate whitespace-nowrap rounded px-1.5 py-0.5 align-bottom text-[10px] font-medium hover:underline"
                           style={swatch.fill(row.colorCode || '#4A90D9', { text: true })}
@@ -266,7 +284,7 @@ export default function LeaveAuditByMonth({
                         <p className="mt-0.5 truncate text-[10px] text-ink-muted">{underName}</p>
                       </td>
                       {row.months.map((days, month) => (
-                        <td key={month} className={`relative border-b border-slate-hairline p-0 ${month > 0 ? 'border-l border-l-slate-hairline' : ''}`}>
+                        <td key={month} className={`relative border-b border-b-slate-hairline p-0 ${month > 0 ? 'border-l border-l-slate-line' : ''} ${selectedId === row.profileId ? 'bg-accent-tint/50' : ''}`}>
                           {/* The month itself (under the bars): hover or tap
                               for its days and the leave behind them. */}
                           <button
@@ -278,33 +296,43 @@ export default function LeaveAuditByMonth({
                             onFocus={e => { if (isDesktop && !open?.pinned) show(row, month, e.currentTarget, false) }}
                             onBlur={() => { if (isDesktop && !open?.pinned) setOpen(null) }}
                             onClick={e => {
+                              e.stopPropagation()
+                              setSelectedId(row.profileId)
                               if (isOpen(row, month) && open.pinned) setOpen(null)
                               else show(row, month, e.currentTarget, true)
                             }}
                             aria-pressed={isOpen(row, month) && open.pinned}
                             className={`block h-9 w-full focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent ${
-                              isOpen(row, month) ? (open.pinned ? 'bg-accent-tint ring-2 ring-inset ring-accent' : 'bg-canvas-sunken') : 'hover:bg-canvas-sunken'
+                              // A picked month: outlined, not filled.
+                              isOpen(row, month) ? (open.pinned ? 'ring-2 ring-inset ring-accent' : 'bg-canvas-sunken/70') : 'hover:bg-canvas-sunken/70'
                             }`}
                             data-testid="month-cell"
                             data-days={days}
                           />
-                          <MonthBars requests={requestsByProfile.get(row.profileId)} year={year} month={month} onOpen={onOpenRequest} />
+                          <MonthBars
+                            requests={requestsByProfile.get(row.profileId)}
+                            year={year}
+                            month={month}
+                            onOpen={(request, rect) => { setSelectedId(row.profileId); onOpenRequest(request, rect) }}
+                            twoLanes={(requestsByProfile.get(row.profileId) || []).some(r => r.status === 'pending')}
+                          />
                         </td>
                       ))}
-                      <td className="border-b border-l border-b-slate-hairline border-l-slate-line px-1 py-1.5 text-center font-semibold text-ink">{row.annual}</td>
-                      <td className="border-b border-slate-hairline px-1 py-1.5 text-center text-ink">{row.annualLeft}</td>
-                      <td className="border-b border-slate-hairline px-1 py-1.5 text-center text-ink">{row.sick}</td>
-                      <td className="border-b border-slate-hairline px-1 py-1.5 text-center text-ink">{row.other}</td>
-                      <td className="border-b border-slate-hairline px-1 py-1.5 text-center font-semibold text-ink">{row.total}</td>
-                      <td className="border-b border-slate-hairline px-2 py-1.5 text-ink-light">
+                      <td className={`border-b border-l border-b-slate-hairline border-l-slate-line px-1 py-1.5 text-center font-semibold text-ink ${selectedId === row.profileId ? 'bg-accent-tint/50' : ''}`}>{row.annual}</td>
+                      <td className={`border-b border-slate-hairline px-1 py-1.5 text-center text-ink ${selectedId === row.profileId ? 'bg-accent-tint/50' : ''}`}>{row.annualLeft}</td>
+                      <td className={`border-b border-slate-hairline px-1 py-1.5 text-center text-ink ${selectedId === row.profileId ? 'bg-accent-tint/50' : ''}`}>{row.sick}</td>
+                      <td className={`border-b border-slate-hairline px-1 py-1.5 text-center text-ink ${selectedId === row.profileId ? 'bg-accent-tint/50' : ''}`}>{row.other}</td>
+                      <td className={`border-b border-slate-hairline px-1 py-1.5 text-center font-semibold text-ink ${selectedId === row.profileId ? 'bg-accent-tint/50' : ''}`}>{row.total}</td>
+                      <td className={`border-b border-slate-hairline px-2 py-1.5 text-ink-light ${selectedId === row.profileId ? 'bg-accent-tint/50' : ''}`}>
                         <span className="flex flex-wrap items-center gap-1.5">
                           {sinceLastBreakText(row.sinceBreak)}
                           {row.sinceBreak.long && <span className="chip-amber rounded-full px-1.5 py-0.5 text-[10px] font-medium">Long</span>}
                         </span>
                       </td>
-                      <td className="border-b border-slate-hairline px-1 text-right">
+                      <td className={`border-b border-slate-hairline px-1 text-right ${selectedId === row.profileId ? 'bg-accent-tint/50' : ''}`}>
                         <Link
                           to={yearTo}
+                          onClick={e => e.stopPropagation()}
                           aria-label={`Open ${fullName}’s year`}
                           className="inline-flex h-8 w-8 items-center justify-center rounded text-ink-muted hover:bg-canvas-sunken hover:text-ink"
                         >

@@ -14,11 +14,11 @@ export function requestLink(request) {
   }
 }
 
-// One doctor's leave on Team Leave → Matrix: their row, the request's year,
-// the request's bar selected (admins; the Matrix needs a wide screen).
+// One doctor's leave on Team Leave → All Leave: the request's year in the
+// Month view (the timeline), its Leave details open (admins).
 export function teamLeaveLink(request) {
   const params = new URLSearchParams({
-    tab: 'team', sub: 'current', ldoctor: request.profile_id, lyear: request.date_from.slice(0, 4), lrequest: request.id,
+    tab: 'team', sub: 'all', lyear: request.date_from.slice(0, 4), lrequest: request.id,
   })
   return `/leave?${params.toString()}`
 }
@@ -58,7 +58,7 @@ export function leaveDestination(request, { isAdmin = false, own = false, wide =
   if (!request || request.status === 'rejected' || request.status === 'cancelled') return null
   const doctorOwn = own && !isAdmin
   const myRequests = { to: `/leave?tab=requests&request=${request.id}`, label: 'My Requests', kind: 'request' }
-  if (isAdmin && wide && (teamLeave || request.leave_type === 'sick')) return { to: teamLeaveLink(request), label: 'Team Leave', kind: 'request' }
+  if (isAdmin && wide && (teamLeave || request.leave_type === 'sick')) return { to: teamLeaveLink(request), label: 'All Leave', kind: 'request' }
   if (request.leave_type === 'sick') {
     if (doctorOwn) return myRequests
     if (inLeaveTab) return null

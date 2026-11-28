@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { X as CloseIcon } from 'lucide-react'
 import { DEFAULT_RULES_URL } from './InlineRuleHint'
 
 // Shared bottom-sheet Legend — replaces the drifting "Legend button + a
@@ -33,9 +34,12 @@ export default function LegendSheet({ title = 'Legend', trigger, children, ruleI
             className="card flex w-full max-w-sm flex-col rounded-b-none p-4 sm:max-h-[80vh] sm:rounded-b-lg"
             onClick={e => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <h2 className="font-display text-base font-bold text-ink">{title}</h2>
-              <button type="button" onClick={() => setOpen(false)} className="text-ink-muted hover:text-ink" aria-label="Close">×</button>
+              {/* Modal's own close button, so every legend's matches every dialog's. */}
+              <button type="button" onClick={() => setOpen(false)} aria-label="Close" className="btn-close h-11 w-11 text-ink-muted md:h-8 md:w-8">
+                <CloseIcon className="h-5 w-5 md:h-4 md:w-4" />
+              </button>
             </div>
             <div className="mt-3 max-h-[70vh] overflow-y-auto">
               {children}

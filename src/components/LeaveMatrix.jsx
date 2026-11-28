@@ -395,7 +395,7 @@ export default function LeaveMatrix({ requests, controls, leading = null, canCan
           />
         </div>
         <div className="flex flex-shrink-0 items-center gap-2">
-          <DateStepper unit="year" year={year} onChange={setYear} nowrap todayLabel />
+          <DateStepper unit="year" year={year} onChange={setYear} nowrap />
           <div className="h-5 w-px bg-slate-line" aria-hidden="true" />
           {/* The colour key behind one icon, as the Rotations tables keep
               theirs, rather than a line of swatches of its own. */}

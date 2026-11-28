@@ -171,7 +171,19 @@ describe("LeaveListView — Who's away", () => {
     mockData.rows = [row('live', { status: 'approved', date_from: TODAY, date_to: inDays(2) })]
     renderList()
     fireEvent.click(await screen.findByText(/Doc live/))
-    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    // A wide screen shows the leave in the side panel; a narrow one in a window.
+    await waitFor(() => expect(screen.queryByRole('dialog') || screen.queryByText('Select a row to see its leave.') === null).toBeTruthy())
     expect(screen.queryByRole('button', { name: /Cancel leave/ })).not.toBeInTheDocument()
+  })
+
+  it('on a wide screen a row opens the leave in the side panel, with columns for category and leave', async () => {
+    mockAuth.isAdmin = true
+    mockData.rows = [row('live', { status: 'approved', date_from: TODAY, date_to: inDays(2) })]
+    renderList()
+    const panel = await screen.findByTestId('away-panel')
+    expect(panel).toHaveTextContent('Select a row to see its leave.')
+    fireEvent.click(await screen.findByText(/Doc live/))
+    expect(within(panel).getByRole('button', { name: /Cancel leave/ })).toBeInTheDocument()
+    expect(screen.getAllByTestId('leave-type-pill').length).toBeGreaterThan(0)
   })
 })

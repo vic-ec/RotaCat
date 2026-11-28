@@ -70,7 +70,10 @@ function ClearIcon(props) {
 // `alwaysSearchable`: forces the search box on below SEARCH_THRESHOLD — for
 // a facet like Doctor, where a caller wants search regardless of how many
 // names happen to be on staff right now.
-export function ToolbarFacet({ icon, label, value, onChange, options, isActive, disabled = false, compact = false, variant = 'pill', alwaysSearchable = false }) {
+// `labelFrom`: the width its word label shows from ('sm' by default; 'xl'
+// keeps it an icon on anything narrower than a wide desktop).
+const LABEL_FROM = { sm: 'hidden sm:inline', xl: 'hidden xl:inline' }
+export function ToolbarFacet({ icon, label, value, onChange, options, isActive, disabled = false, compact = false, variant = 'pill', alwaysSearchable = false, labelFrom = 'sm' }) {
   const [open, setOpen] = useState(false)
   const [anchor, setAnchor] = useState(null)
   const [query, setQuery] = useState('')
@@ -113,7 +116,7 @@ export function ToolbarFacet({ icon, label, value, onChange, options, isActive, 
           : `toolbar-pill ${open || isActive ? 'toolbar-pill-active' : 'toolbar-pill-idle'}`}
       >
         {icon}
-        <span className={isRow ? 'flex-1' : (compact ? 'hidden' : 'hidden sm:inline')}>{label}</span>
+        <span className={isRow ? 'flex-1' : (compact ? 'hidden' : LABEL_FROM[labelFrom] || LABEL_FROM.sm)}>{label}</span>
         {isRow && selected && <span aria-hidden="true" className="truncate text-ink-muted">{selected.label}</span>}
         {isRow && <ChevronDownIcon className={`h-4 w-4 flex-shrink-0 text-ink-muted transition-transform ${open ? '' : 'rotate-180'}`} />}
       </button>

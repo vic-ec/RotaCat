@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useSwipeNavigation } from '../lib/swipeNavigation'
 import { useBackTarget, BackTargetContext, drawsOwnBack } from '../lib/backNav'
 import BackLink from './BackLink'
+import PageLoading from './PageLoading'
 import { UsersRound, NotebookTabs, UserCog, Grid2x2Check } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -313,7 +314,10 @@ export default function AppLayout() {
         >
           <BackTargetContext.Provider value={backTarget}>
             {!drawsOwnBack(location.pathname) && <BackLink target={backTarget} />}
-            <Outlet />
+            {/* Pages load on first visit (App.jsx); the nav stays while one does. */}
+            <Suspense fallback={<PageLoading />}>
+              <Outlet />
+            </Suspense>
           </BackTargetContext.Provider>
         </main>
       </div>

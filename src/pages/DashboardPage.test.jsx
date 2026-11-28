@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, within, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import DashboardPage from './DashboardPage'
@@ -14,6 +14,11 @@ vi.mock('../lib/adminAttention', () => ({
   fetchAdminAttention: vi.fn().mockResolvedValue([]),
 }))
 import { fetchAdminAttention } from '../lib/adminAttention'
+
+// Captures what each render registers with useLiveRefresh, so a test can
+// run a timed refresh by calling it.
+const { liveRefreshes } = vi.hoisted(() => ({ liveRefreshes: [] }))
+vi.mock('../lib/useLiveRefresh', () => ({ useLiveRefresh: (refresh, opts) => { liveRefreshes.push({ refresh, opts }) } }))
 
 // `select(cols, { head: true, count: 'exact' })` is keyed separately from a
 // plain select — the admin view issues both against leave_requests (one for
@@ -427,5 +432,48 @@ describe('DashboardPage — Log late arrival', () => {
     renderDashboard()
     await screen.findAllByText(/./)
     expect(screen.queryByRole('button', { name: 'Log late arrival' })).not.toBeInTheDocument()
+  })
+})
+
+// The minute refresh keeps team leave, sick leave and the pending count
+// current; Needs attention (about ten reads) has its own 5-minute refresh
+// that also runs on return to the app.
+describe('DashboardPage — admin refresh cadence', () => {
+  beforeEach(() => {
+    liveRefreshes.length = 0
+    fetchAdminAttention.mockReset().mockResolvedValue([])
+  })
+
+  const latest = () => {
+    // Each render registers both, in order: the minute one, then attention.
+    const last = liveRefreshes.slice(-2)
+    return { minute: last[0], attention: last[1] }
+  }
+
+  it('the minute refresh leaves Needs attention alone; its own runs every 5 minutes', async () => {
+    mockAuth = { profile: { id: 'admin-1', name: 'Admin' }, isAdmin: true }
+    renderDashboard()
+    await screen.findByText('Nothing needs your attention')
+    expect(fetchAdminAttention).toHaveBeenCalledTimes(1)
+
+    const { minute, attention } = latest()
+    expect(minute.opts.intervalMs).toBeUndefined() // the hook's 1-minute default
+    expect(attention.opts).toMatchObject({ intervalMs: 5 * 60 * 1000, enabled: true })
+
+    await act(async () => { await minute.refresh() })
+    expect(fetchAdminAttention).toHaveBeenCalledTimes(1)
+
+    fetchAdminAttention.mockResolvedValueOnce([{ key: 'signups', count: 2, to: '/staff?tab=pending', label: 'sign-ups awaiting approval' }])
+    await act(async () => { await latest().attention.refresh() })
+    expect(fetchAdminAttention).toHaveBeenCalledTimes(2)
+    expect(await screen.findByRole('link', { name: /sign-ups awaiting approval/ })).toBeInTheDocument()
+  })
+
+  it('a doctor has no attention refresh running', async () => {
+    mockAuth = { profile: { id: 'doctor-1', name: 'Jane' }, isAdmin: false }
+    renderDashboard()
+    await screen.findByText('Upcoming shifts')
+    expect(latest().attention.opts.enabled).toBe(false)
+    expect(fetchAdminAttention).not.toHaveBeenCalled()
   })
 })

@@ -4,6 +4,12 @@ import App from './App.jsx'
 import { ThemeProvider } from './context/ThemeContext'
 import HintLayer from './components/HintLayer'
 import './styles/index.css'
+import { registerServiceWorker, reloadOnMissingChunk } from './lib/staleDeploy'
+
+// After a deploy, move an open copy of the old version onto the new one
+// rather than let it show missing images or pages (lib/staleDeploy).
+reloadOnMissingChunk()
+registerServiceWorker()
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

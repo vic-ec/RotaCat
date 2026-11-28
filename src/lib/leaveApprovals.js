@@ -17,6 +17,7 @@
 //     between then and now. A breach asks for an explicit "Approve as
 //     overbooked"; approval stays possible.
 import { supabase } from './supabase'
+import { notifyBadgesChanged } from './navBadges'
 import { datesInRange, monthBounds } from './dateRange'
 import { annualDaysUsedInYear } from './leaveDashboard'
 import { createNotification } from './notifications'
@@ -42,6 +43,7 @@ export async function approveLeaveRequest(request, reviewerId) {
   }).eq('id', request.id).eq('status', 'pending').select('id')
   if (error) throw new Error(error.message)
   if (!data || data.length === 0) throw new Error(ALREADY_DECIDED)
+  notifyBadgesChanged()
 
   await createNotification({
     profileId: request.profile_id,
@@ -61,6 +63,7 @@ export async function rejectLeaveRequest(request, reviewerId, notes) {
   }).eq('id', request.id).eq('status', 'pending').select('id')
   if (error) throw new Error(error.message)
   if (!data || data.length === 0) throw new Error(ALREADY_DECIDED)
+  notifyBadgesChanged()
 
   await createNotification({
     profileId: request.profile_id,

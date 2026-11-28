@@ -37,6 +37,9 @@ const MAX_UPCOMING_ROWS = 5
 const TEAM_LEAVE_LOOKAHEAD_DAYS = 7
 // How far back the sick-leave panel's "recently" column looks.
 const SICK_LOOKBACK_DAYS = 7
+// How often an open admin Dashboard re-reads Needs attention (the rest
+// refreshes every minute).
+const ATTENTION_REFRESH_MS = 5 * 60 * 1000
 
 // A row of start buttons above a dashboard's first heading: equal halves
 // across a phone, right-aligned at their own width from md.
@@ -200,12 +203,18 @@ export default function DashboardPage() {
   // and once a minute while it stays there — so leave captured or a shift
   // changed elsewhere shows up without a reload. `silent` skips the loading
   // state: this runs under a dashboard someone is reading.
+  // The admin's Needs attention list is about ten reads of its own and
+  // changes slowly, so the once-a-minute pass leaves it out; it has its own
+  // refresh below.
   useLiveRefresh(() => {
-    if (isAdmin) loadAdminWidgets({ silent: true })
+    if (isAdmin) loadAdminWidgets({ silent: true, attention: false })
     else if (isClerk) loadClerkWidgets({ silent: true })
     else if (isLocum) loadLocumWidgets({ silent: true })
     else loadDoctorWidgets({ silent: true })
   }, { enabled: Boolean(profile?.id) })
+
+  // Needs attention: every 5 minutes, and on return to the app.
+  useLiveRefresh(() => { loadAdminAttention() }, { intervalMs: ATTENTION_REFRESH_MS, enabled: Boolean(profile?.id) && isAdmin })
 
   // roster_entries RLS restricts non-admins to published-roster rows only
   // (roster_entries_select: rm.status = 'published' OR is_admin()), so this
@@ -420,7 +429,8 @@ export default function DashboardPage() {
   // Admin: counts first, names second. The "needs attention" numbers are
   // work queues (pending approvals and the rest of lib/adminAttention.js);
   // team leave is awareness. Hours warnings are not here (see below).
-  async function loadAdminWidgets({ silent = false } = {}) {
+  // `attention: false` skips the Needs attention list (the minute refresh).
+  async function loadAdminWidgets({ silent = false, attention = true } = {}) {
     if (!silent) setLoading(true)
     const today = todayStr()
 
@@ -465,12 +475,16 @@ export default function DashboardPage() {
 
     // Hours warnings (over / under contracted hours) live on the Rosters
     // list's Flags column and in Hours Summary, where they can be acted
-    // on, not here. Never let this panel's extra rows take the dashboard
-    // down with them.
-    const attention = await fetchAdminAttention(new Date()).catch(() => [])
-    setAttentionItems(attention)
+    // on, not here.
+    if (attention) await loadAdminAttention()
 
     setLoading(false)
+  }
+
+  // Never let this panel's extra rows take the dashboard down with them.
+  async function loadAdminAttention() {
+    const items = await fetchAdminAttention(new Date()).catch(() => [])
+    setAttentionItems(items)
   }
 
   return (

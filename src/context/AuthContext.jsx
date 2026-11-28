@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { clearContactCache } from '../lib/contactCard'
 import { isTempPasswordExpired, TEMP_PASSWORD_EXPIRED_CODE, TEMP_PASSWORD_EXPIRED_MESSAGE } from '../lib/tempPassword'
 
 const AuthContext = createContext(undefined)
@@ -161,6 +162,9 @@ export function AuthProvider({ children }) {
 
   async function signOut() {
     await supabase.auth.signOut()
+    // The Dashboard's contact details are kept in memory; don't hand them
+    // to whoever signs in next on this device.
+    clearContactCache()
   }
 
   // ── Role helpers (account type: doctor / locum / clerk) ────

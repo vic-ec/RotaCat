@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Info } from 'lucide-react'
+import { CircleHelp } from 'lucide-react'
 import InfoPopover from './InfoPopover'
 import DateFieldButton from './DateFieldButton'
 import SelectMenu from './SelectMenu'
@@ -38,8 +38,8 @@ import { shortDate } from '../lib/reviewLog'
 const REASON_LABELS = { leave: 'leave', swap: 'swap', no_show: 'no-show', other: 'other reason' }
 
 // A choice: a radio and its label on one line; what it does is behind an
-// (i) at the right of the row (tap, or hover on a desktop), so the menu
-// stays short enough to fit on screen. The (i) sits outside the label so
+// (?) at the right of the row (tap, or hover on a desktop), so the menu
+// stays short enough to fit on screen. The (?) sits outside the label so
 // opening it never picks the choice.
 function Choice({ value, label, hint, danger = false, disabled = false, checked, onChange }) {
   return (
@@ -58,7 +58,7 @@ function Choice({ value, label, hint, danger = false, disabled = false, checked,
       </label>
       {hint && (
         <span className="flex-shrink-0 pr-1" data-testid="choice-info">
-          <InfoPopover icon={<Info className="h-4 w-4" aria-hidden="true" />} title={label} label={`About ${label}`} hover>
+          <InfoPopover icon={<CircleHelp className="h-4 w-4" aria-hidden="true" />} title={label} label={`About ${label}`} hover>
             <p className="text-sm text-ink">{hint}</p>
           </InfoPopover>
         </span>

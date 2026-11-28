@@ -266,8 +266,9 @@ function MyYear({ profileId, own }) {
             onSelectDate={setSelectedDate}
           />
         )}
-        {/* Leave and Attendance: the Roster and Planners lists' width. */}
-        {tab === 'leave' && <div className="mx-auto md:max-w-2xl"><MyYearLeave rows={view.record} data={data} profileId={profileId} today={today} isAdmin={isAdmin} own={own} leading={actionButton} controls={yearControls} /></div>}
+        {/* Leave: the Overview's width (its table needs it). Attendance:
+            the Roster and Planners lists' width. */}
+        {tab === 'leave' && <div><MyYearLeave rows={view.record} data={data} profileId={profileId} today={today} isAdmin={isAdmin} own={own} leading={actionButton} controls={yearControls} /></div>}
         {tab === 'shifts' && (
           <MyYearShifts
             year={year}

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   readMyYearSettings, leaveBucket, leaveDaysByMonth, buildMonthRow, leaveTotals, breakRanges, breakSummary,
   lieuEarnedRows, lieuBalance, lieuBalancesByProfile, shiftGroupOf, shiftCounts, onCallDates, leaveRecord,
-  coverForRequest, coverSummary, buildYearDays, yearWeekColumns, daysByMonth,
+  coverForRequest, coverSummary, shiftsAffected, coverNote, buildYearDays, yearWeekColumns, daysByMonth,
 } from './myYear'
 
 let seq = 0
@@ -291,5 +291,34 @@ describe('year at a glance', () => {
     expect(columns[0].map(d => d?.date ?? null)).toEqual([null, null, null, '2026-01-01', '2026-01-02', '2026-01-03', '2026-01-04'])
     expect(columns.flat().filter(Boolean)).toHaveLength(365)
     expect(daysByMonth(days).map(m => m.length)).toEqual([31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31])
+  })
+})
+
+describe('Leave tab columns: shifts affected and cover note', () => {
+  const opts = { profileId: 'p1', publishedMonths: new Set(['2026-11']), today: '2026-11-24' }
+  const ST12 = { code: 'WD_12', day_type: 'weekday', is_night_shift: false, start_time: '12:00:00', end_time: '22:00:00' }
+  const shiftOn = (date, extra) => ({ id: `s-${date}`, roster_month_id: 'm', date, shift_types: ST12, ...extra })
+
+  it('names one shift by its times, more by a count', () => {
+    const r = leave('sick', '2026-11-25', '2026-11-26')
+    const one = coverForRequest(r, [shiftOn('2026-11-25', { profile_id: null, vacated_profile_id: 'p1', vacated_leave_request_id: r.id })], opts)
+    expect(shiftsAffected(one)).toBe('12h–22h')
+    const two = coverForRequest(r, [
+      shiftOn('2026-11-25', { profile_id: null, vacated_profile_id: 'p1', vacated_leave_request_id: r.id }),
+      shiftOn('2026-11-26', { profile_id: 'p2', vacated_profile_id: 'p1', vacated_leave_request_id: r.id }),
+    ], opts)
+    expect(shiftsAffected(two)).toBe('2 shifts affected')
+    expect(coverNote(two)).toBe('1 of 2 not covered')
+    expect(shiftsAffected(coverForRequest(leave('annual', '2026-11-10', '2026-11-12'), [], opts))).toBe('—')
+  })
+
+  it('reads Covered, Not covered, Off roster or Not yet rostered', () => {
+    const r = leave('sick', '2026-11-25', '2026-11-25')
+    const covered = coverForRequest(r, [shiftOn('2026-11-25', { profile_id: 'p2', vacated_profile_id: 'p1', vacated_leave_request_id: r.id })], opts)
+    expect(coverNote(covered)).toBe('Covered')
+    const notCovered = coverForRequest(r, [shiftOn('2026-11-25', { profile_id: null, is_locum: true, vacated_profile_id: 'p1', vacated_leave_request_id: r.id })], opts)
+    expect(coverNote(notCovered)).toBe('Not covered')
+    expect(coverNote(coverForRequest(leave('annual', '2026-11-10', '2026-11-12'), [], opts))).toBe('Off roster')
+    expect(coverNote(coverForRequest(leave('annual', '2026-12-14', '2026-12-18'), [], opts))).toBe('Not yet rostered')
   })
 })

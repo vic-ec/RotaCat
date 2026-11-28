@@ -6,6 +6,7 @@
 import { addDays, datesInRange, monthBounds, parseLocalDate, dayOfWeek } from './dateRange'
 import { annualDaysInRange } from './leaveDashboard'
 import { leaveTypeGroupKey } from './leaveMatrix'
+import { timeRangeLabel } from './shiftTimes'
 
 // Stored as a leave type, but a weekend-off arrangement rather than leave:
 // never counted in a total, a month cell or the leave record (All Leave's
@@ -401,6 +402,8 @@ export function coverForRequest(request, entries, { profileId, publishedMonths =
       date,
       shiftCode: e.shift_types?.code ?? null,
       startLabel: shiftStartLabel(e.start_time_override || e.shift_types?.start_time),
+      // "12h–22h"; '' on a cached row read before end times were fetched.
+      timeRange: timeRangeLabel(e.start_time_override || e.shift_types?.start_time, e.end_time_override || e.shift_types?.end_time),
       cover: coverKind(e, profileId),
       coverProfileId: e.profile_id && e.profile_id !== profileId ? e.profile_id : null,
       locumName: e.is_locum ? (String(e.locum_name || '').trim() || null) : null,
@@ -425,6 +428,27 @@ export function coverSummary(cover) {
   }
   const open = cover.shifts.filter(s => s.cover === 'not_covered' || s.cover === 'open_locum').length
   return `${cover.shifts.length} shifts · ${open === 0 ? 'all covered' : `${open} not covered`}`
+}
+
+// The Leave tab's two columns, from the same cover:
+// shiftsAffected  "12h–22h" for one shift, "2 shifts affected" for more,
+//                 "—" for none
+// coverNote       "Covered" / "Not covered" / "1 of 2 not covered" /
+//                 "Off roster" / "Not yet rostered"
+export function shiftsAffected(cover) {
+  if (!cover || cover.shifts.length === 0) return '—'
+  if (cover.shifts.length === 1) return cover.shifts[0].timeRange || cover.shifts[0].startLabel
+  return `${cover.shifts.length} shifts affected`
+}
+
+export function coverNote(cover) {
+  if (!cover) return '—'
+  if (cover.kind === 'not_rostered') return 'Not yet rostered'
+  if (cover.kind === 'off_roster') return 'Off roster'
+  const open = cover.shifts.filter(s => s.cover === 'not_covered' || s.cover === 'open_locum').length
+  if (open === 0) return 'Covered'
+  if (open === cover.shifts.length) return 'Not covered'
+  return `${open} of ${cover.shifts.length} not covered`
 }
 
 // ── Year at a glance ───────────────────────────────────────────────────

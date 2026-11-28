@@ -12,8 +12,8 @@ export const isProfileId = value => UUID.test(String(value || ''))
 const COUNTED_STATUSES = ['published', 'archived']
 
 const ENTRY_COLUMNS = 'id, roster_month_id, date, profile_id, is_locum, locum_name, locum_contact_id, counts_toward_contract_hours, '
-  + 'vacated_profile_id, vacated_reason, vacated_leave_request_id, consultant_profile_id, start_time_override, '
-  + 'shift_types(code, label, day_type, is_night_shift, start_time)'
+  + 'vacated_profile_id, vacated_reason, vacated_leave_request_id, consultant_profile_id, start_time_override, end_time_override, '
+  + 'shift_types(code, label, day_type, is_night_shift, start_time, end_time)'
 
 // Never throws: with the rows missing (offline, or ahead of the migration)
 // the migration's defaults stand.

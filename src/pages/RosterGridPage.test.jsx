@@ -67,7 +67,13 @@ vi.mock('../lib/supabase', () => ({
         single() { single = true; return builder },
         then(resolve, reject) {
           let data = []
-          if (table === 'roster_months') data = { id: 'rm1', year: 2026, month: 8, status: mockRosterStatus }
+          if (table === 'roster_months') {
+            // One roster (August 2026). A single-row read gets it; a list
+            // read gets it only when its year/month/id filters match, as a
+            // real query would (the month switch, the cancel-leave warning).
+            const roster = { id: 'rm1', year: 2026, month: 8, status: mockRosterStatus, deleted_at: null }
+            data = single ? roster : (filters.every(([c, v]) => !(c in roster) || roster[c] === v) ? [roster] : [])
+          }
           if (table === 'roster_entries') data = [...ENTRIES, ...extraEntries]
           if (table === 'profiles') data = filters.some(([c, v]) => c === 'category' && v === 'Consultant') ? CONSULTANTS : PROFILES
           if (table === 'shift_types') data = single ? SHIFT_TYPES[0] : SHIFT_TYPES

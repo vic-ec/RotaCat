@@ -7,12 +7,10 @@ import {
   findDoubleBookingConflicts,
   isValidAnnualLeaveDays,
   annualDaysSummary,
-  formatRequestDateRange,
   SPECIAL_LEAVE_TYPES,
   SPECIAL_LEAVE_SOFT_CAP,
   findWorstAnnualCapacitySlot,
   findWorstSpecialLeavePressure,
-  countSpecialLeavePressureDaysInYear,
   naturalLeavePeriodLabel,
   capacityAssessmentState,
   sameCapacityPool,
@@ -207,49 +205,6 @@ describe('overlapsPlannedWeekend', () => {
   })
 })
 
-describe('formatRequestDateRange', () => {
-  it('formats a single-day request as one date, not a repeated range', () => {
-    const { rangeLabel, extraLine } = formatRequestDateRange('2026-08-12', '2026-08-12')
-    expect(rangeLabel).toBe('Wed 12 Aug 2026')
-    expect(extraLine).toBeNull()
-  })
-
-  it('compacts a same-month, same-year range to "DDD dd - DDD dd MMM YYYY", with a weekend/Sat/Sun/PH summary', () => {
-    // 2026-08-15 is a Saturday, 2026-08-30 is a Sunday — 3 full weekends,
-    // 3 Saturdays, 3 Sundays in between.
-    const { rangeLabel, extraLine } = formatRequestDateRange('2026-08-15', '2026-08-30', ['2026-08-24'])
-    expect(rangeLabel).toBe('Sat 15 - Sun 30 Aug 2026')
-    expect(extraLine).toBe('3 weekends, 3 Saturdays, 3 Sundays, 1 Public Holiday included')
-  })
-
-  it('spells out both full dates with a dash (not "to") when the range crosses a month', () => {
-    const { rangeLabel } = formatRequestDateRange('2026-08-28', '2026-09-02')
-    expect(rangeLabel).toBe('Fri 28 Aug 2026 - Wed 2 Sep 2026')
-  })
-
-  it('spells out both full dates with a dash when the range crosses a year', () => {
-    const { rangeLabel } = formatRequestDateRange('2026-12-29', '2027-01-02')
-    expect(rangeLabel).toBe('Tue 29 Dec 2026 - Sat 2 Jan 2027')
-  })
-
-  it('counts a lone Saturday without its Sunday toward Saturdays but not weekends', () => {
-    // 2026-08-14 (Fri) to 2026-08-15 (Sat) — a Saturday with no following Sunday in range.
-    const { extraLine } = formatRequestDateRange('2026-08-14', '2026-08-15')
-    expect(extraLine).toBe('1 Saturday included')
-  })
-
-  it('omits the summary line entirely when the range has no weekend days or public holidays', () => {
-    // 2026-08-10 (Mon) to 2026-08-14 (Fri) — a plain working week.
-    const { extraLine } = formatRequestDateRange('2026-08-10', '2026-08-14')
-    expect(extraLine).toBeNull()
-  })
-
-  it('accepts a Set of public holiday dates as well as an array', () => {
-    const { extraLine } = formatRequestDateRange('2026-08-10', '2026-08-10', new Set(['2026-08-10']))
-    expect(extraLine).toBe('1 Public Holiday included')
-  })
-})
-
 describe('findWorstAnnualCapacitySlot', () => {
   const maxByColumnKey = { OT_Intern: 1 }
   const maxFullTime = 2
@@ -333,27 +288,6 @@ describe('findWorstSpecialLeavePressure', () => {
   it('treats a date with no entries as zero', () => {
     const result = findWorstSpecialLeavePressure({ dateFrom: '2026-08-10', dateTo: '2026-08-10', byDate: new Map() })
     expect(result).toEqual({ date: '2026-08-10', count: 0, softCap: 3, overSoftCap: false })
-  })
-})
-
-describe('countSpecialLeavePressureDaysInYear', () => {
-  it('counts only the dates that meet or exceed the soft cap', () => {
-    const byDate = new Map([
-      ['2026-03-10', [{ profile_id: 'p1' }, { profile_id: 'p2' }, { profile_id: 'p3' }]], // 3 -> over
-      ['2026-03-11', [{ profile_id: 'p1' }, { profile_id: 'p2' }]], // 2 -> under
-    ])
-    expect(countSpecialLeavePressureDaysInYear({ year: 2026, byDate })).toBe(1)
-  })
-
-  it('returns 0 for a year with no pressure days', () => {
-    expect(countSpecialLeavePressureDaysInYear({ year: 2026, byDate: new Map() })).toBe(0)
-  })
-
-  it('accepts a custom profileIdOf accessor for already-reshaped rows', () => {
-    const byDate = new Map([
-      ['2026-03-10', [{ profileId: 'p1' }, { profileId: 'p2' }, { profileId: 'p3' }]],
-    ])
-    expect(countSpecialLeavePressureDaysInYear({ year: 2026, byDate, profileIdOf: e => e.profileId })).toBe(1)
   })
 })
 

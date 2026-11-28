@@ -154,17 +154,6 @@ export function buildAttentionItems(data) {
   return items
 }
 
-// Doctors under their minimum for a month that HAS a roster. The minimum
-// is the month's own (lib/contractMinimum.js): lowered for leave, for days
-// not yet (or no longer) in the EC, and by the engine's own variance.
-export function countUnderMinimum({ profiles, hoursByProfile, minimums }) {
-  return profiles.filter(p => {
-    const min = minimums.get(p.id)?.minimum || 0
-    if (!min) return false
-    return (hoursByProfile.get(p.id) || 0) < min
-  }).length
-}
-
 const safe = async (promise, fallback) => {
   try {
     const res = await promise

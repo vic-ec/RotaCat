@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  pressureDatesInYear, monthDayMarkers, monthSummaryLine, firstPressureRangeInMonth,
-  monthTotalCapacityBreakdown, monthPublicHolidayCount, entriesInRange,
+  pressureDatesInYear, monthDayMarkers, monthSummaryLine, entriesInRange,
   categoryDayCapacityState, monthCapacityMarkers,
 } from './annualPlannerOverview'
 import { LEAVE_CAPACITY_STATES } from './leaveYearGrid'
@@ -96,68 +95,6 @@ describe('monthSummaryLine', () => {
 
   it('says "No-one on leave" when there is nothing at all', () => {
     expect(monthSummaryLine({ approvedStaff: 0, pendingRequests: 0 })).toBe('No-one on leave')
-  })
-})
-
-describe('firstPressureRangeInMonth', () => {
-  it('finds the first contiguous run of pressure dates', () => {
-    const pressureDates = new Set(['2026-08-11', '2026-08-12', '2026-08-13', '2026-08-20'])
-    expect(firstPressureRangeInMonth(2026, 8, pressureDates)).toEqual({ from: '2026-08-11', to: '2026-08-13' })
-  })
-
-  it('returns null when the month has no pressure days', () => {
-    expect(firstPressureRangeInMonth(2026, 8, new Set(['2026-09-01']))).toBeNull()
-  })
-
-  it('handles a single-day pressure range', () => {
-    expect(firstPressureRangeInMonth(2026, 8, new Set(['2026-08-05']))).toEqual({ from: '2026-08-05', to: '2026-08-05' })
-  })
-})
-
-describe('monthTotalCapacityBreakdown', () => {
-  it('buckets each day by its combined headcount across all categories, ignoring days outside the month', () => {
-    const counts = new Map([
-      ['2026-08-08', new Map([['MO', 2]])], // 2 of 3
-      ['2026-08-09', new Map([['MO', 1], ['Registrar', 1]])], // 2 of 3
-      ['2026-08-10', new Map([['MO', 1]])], // 1 of 3
-      ['2026-08-11', new Map()], // 0 of 3, not counted
-      ['2026-09-01', new Map([['MO', 3]])], // outside August
-    ])
-    const result = monthTotalCapacityBreakdown(2026, 8, counts)
-    expect(result).toEqual([
-      { level: 1, days: 1 },
-      { level: 2, days: 2 },
-      { level: 3, days: 0 },
-    ])
-  })
-
-  it('clamps a day whose combined total exceeds 3 into the "3 of 3" bucket', () => {
-    const counts = new Map([['2026-08-08', new Map([['MO', 2], ['Registrar', 1], ['OT_Intern', 1]])]]) // 4 total
-    const result = monthTotalCapacityBreakdown(2026, 8, counts)
-    expect(result.find(r => r.level === 3).days).toBe(1)
-  })
-
-  it('reports zero days at every level for a quiet month', () => {
-    expect(monthTotalCapacityBreakdown(2026, 8, new Map())).toEqual([
-      { level: 1, days: 0 },
-      { level: 2, days: 0 },
-      { level: 3, days: 0 },
-    ])
-  })
-})
-
-describe('monthPublicHolidayCount', () => {
-  it('counts public holidays within the month, ignoring dates outside it', () => {
-    const publicHolidaysByDate = new Map([
-      ['2026-08-10', 'Some Holiday'],
-      ['2026-08-24', 'Another Holiday'],
-      ['2026-09-01', 'Outside August'],
-    ])
-    expect(monthPublicHolidayCount(2026, 8, publicHolidaysByDate)).toBe(2)
-  })
-
-  it('returns 0 for a month with no public holidays', () => {
-    expect(monthPublicHolidayCount(2026, 8, new Map())).toBe(0)
   })
 })
 

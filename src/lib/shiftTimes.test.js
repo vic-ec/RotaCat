@@ -1,11 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { entryDurationHours, effectiveTimes, hoursBetween, adjustedTimesLabel, applyTimeOverrides, validateTimes, hasTimeOverride } from './shiftTimes'
+import { entryDurationHours, hoursBetween, adjustedTimesLabel, applyTimeOverrides, validateTimes, hasTimeOverride } from './shiftTimes'
 
 const st = { start_time: '12:00:00', end_time: '22:00:00', duration_hours: '10.0' }
 
 describe('shiftTimes', () => {
   it('a row with no override works the shift type', () => {
-    expect(effectiveTimes({}, st)).toEqual({ start: '12:00:00', end: '22:00:00', adjusted: false })
     expect(entryDurationHours({}, st)).toBe(10)
     expect(adjustedTimesLabel({})).toBe('')
     expect(hasTimeOverride({ start_time_override: '10:00:00' })).toBe(false)
@@ -13,7 +12,6 @@ describe('shiftTimes', () => {
 
   it('a row with adjusted times works those, counted by their own length', () => {
     const row = { start_time_override: '10:00:00', end_time_override: '20:00:00' }
-    expect(effectiveTimes(row, st)).toEqual({ start: '10:00:00', end: '20:00:00', adjusted: true })
     expect(entryDurationHours(row, st)).toBe(10)
     expect(adjustedTimesLabel(row)).toBe('10h–20h')
     expect(adjustedTimesLabel({ start_time_override: '10:30:00', end_time_override: '15:00:00' })).toBe('10h30–15h')

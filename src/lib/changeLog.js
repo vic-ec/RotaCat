@@ -6,7 +6,6 @@
 // only what a human changed afterward. Failures are swallowed
 // (fire-and-forget): a log write should never block or roll back the
 // actual edit it's recording.
-import { labelForShiftCode } from './shiftLabels'
 import { supabase } from './supabase'
 import { parseLocalDate } from './dateRange'
 import { CATEGORY_GROUPS, groupEntriesByWeekend, planBatchRestore } from './weekendPlanner'
@@ -239,86 +238,9 @@ export function queryWeekendPlannerChanges({ dateFrom, dateTo, adminIds, doctorI
   return query.order('changed_at', { ascending: false }).limit(limit)
 }
 
-function formatTimestamp(iso) {
-  const d = new Date(iso)
-  const dd = String(d.getDate()).padStart(2, '0')
-  const mon = d.toLocaleString('en-GB', { month: 'short' })
-  const hh = String(d.getHours()).padStart(2, '0')
-  const mi = String(d.getMinutes()).padStart(2, '0')
-  const ss = String(d.getSeconds()).padStart(2, '0')
-  return `${dd} ${mon} ${d.getFullYear()}, ${hh}:${mi}:${ss}`
-}
-
 function formatDisplayDate(dateStr) {
   const d = parseLocalDate(dateStr)
   return `${d.getDate()} ${d.toLocaleString('en-GB', { month: 'short' })} ${d.getFullYear()}`
-}
-
-// The detail phrase for one roster_entry_changes row (no actor/timestamp
-// prefix) — shared by the full-line formatter below and by the "Details"
-// column of the searchable review-log table.
-const CHANGE_REASON_LABELS = { leave: 'leave', swap: 'swap', no_show: 'no-show', other: 'other' }
-
-// " — reason: no-show (did not answer phone)". The note carries the detail:
-// for leave it names the type ("Sick leave"), since `reason` itself only
-// ever says 'leave'.
-function reasonSuffix(change) {
-  if (!change.reason) return ''
-  const label = CHANGE_REASON_LABELS[change.reason] || change.reason
-  return ` — reason: ${change.note ? (change.reason === 'leave' || change.reason === 'other' ? change.note : `${label} (${change.note})`) : label}`
-}
-
-export function rosterChangeDetail(change, nameById) {
-  return `${rosterChangeAction(change, nameById)}${reasonSuffix(change)}`
-}
-
-function rosterChangeAction(change, nameById) {
-  const dateFmt = formatDisplayDate(change.entry_date)
-  const before = nameById.get(change.profile_id_before) || null
-  const after = nameById.get(change.profile_id_after) || (change.locum_name ? `${change.locum_name} (locum, no account)` : null)
-
-  if (change.action === 'move') {
-    return `moved ${after ?? '(unassigned)'} from ${formatDisplayDate(change.date_before)} ${labelForShiftCode(change.shift_code_before)} to ${dateFmt} ${labelForShiftCode(change.shift_code)}`
-  }
-  if (change.action === 'remove') {
-    return `removed ${before ?? '(unassigned)'} from ${dateFmt} ${labelForShiftCode(change.shift_code)}`
-  }
-  if (change.action === 'slot_add') return `added cover to ${dateFmt} ${labelForShiftCode(change.shift_code)} (${before ?? 'doctor'} stays off it)`
-  if (change.action === 'slot_remove') return `removed the locum slot from ${dateFmt} ${labelForShiftCode(change.shift_code)} (${before ?? 'doctor'} stays off it)`
-  if (change.action === 'reinstate') return `put ${after ?? '(unassigned)'} back on ${dateFmt} ${labelForShiftCode(change.shift_code)}`
-  if (change.action === 'advertise') return `advertised ${dateFmt} ${labelForShiftCode(change.shift_code)} to locums`
-  if (change.action === 'unadvertise') return `stopped advertising ${dateFmt} ${labelForShiftCode(change.shift_code)}`
-  if (change.action === 'times') return `changed times on ${dateFmt} ${labelForShiftCode(change.shift_code)} for ${after ?? before ?? '(unassigned)'}${change.note ? ` (${change.note})` : ''}`
-  if (change.action === 'undo') return `undid a change to ${dateFmt} ${labelForShiftCode(change.shift_code)}`
-  if (change.action === 'unassign') {
-    return `vacated ${dateFmt} ${labelForShiftCode(change.shift_code)} (was ${before ?? '(unassigned)'})${change.advertised ? ' and opened it for locum cover' : ''}`
-  }
-  if (before) return `${dateFmt} ${labelForShiftCode(change.shift_code)} ${before} → ${after ?? '(unassigned)'}`
-  return `assigned ${after ?? '(unassigned)'} to ${dateFmt} ${labelForShiftCode(change.shift_code)}`
-}
-
-// One human-readable line per roster_entry_changes row, e.g.:
-// "[29 Jul 2026, 19:45:03] Claude Codespace edited August 2026 roster: 7 Aug 2026 WD 12h-22h Ellis → Vaughn"
-export function formatRosterChangeLine(change, nameById, monthLabel) {
-  const actor = nameById.get(change.changed_by) || 'Unknown'
-  return `[${formatTimestamp(change.changed_at)}] ${actor} edited ${monthLabel} roster: ${rosterChangeDetail(change, nameById)}`
-}
-
-// The detail phrase for one weekend_planner_changes row (no actor/timestamp
-// prefix) — shared by the full-line formatter below and by the "Details"
-// column of the searchable review-log table.
-export function weekendChangeDetail(change, nameById) {
-  const subject = nameById.get(change.profile_id) || 'Unknown'
-  const satFmt = formatDisplayDate(change.weekend_saturday)
-  const verb = change.action === 'add' ? 'added' : 'removed'
-  const prep = change.action === 'add' ? 'to' : 'from'
-  return `${verb} ${subject} ${prep} ${change.category} for the ${satFmt} weekend`
-}
-
-// One human-readable line per weekend_planner_changes row.
-export function formatWeekendPlannerChangeLine(change, nameById) {
-  const actor = nameById.get(change.changed_by) || 'Unknown'
-  return `[${formatTimestamp(change.changed_at)}] ${actor} ${weekendChangeDetail(change, nameById)}`
 }
 
 // ── Durable undo (batch_id) ──────────────────────────────────────────────

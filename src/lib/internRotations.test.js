@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  resolveLeaveCapacityColumn, rotationForDate, straddlesRotationBoundary, rotationBoundaryNote, groupRotationsByDoctorId,
+  resolveLeaveCapacityColumn, rotationForDate, rotationBoundaryNote, groupRotationsByDoctorId,
   endOfRotationFlag, groupRotationsIntoBlocks, monthSpan, activeRotationStatus, upcomingRotationStatus, completedRotationStatus,
 } from './internRotations'
 
@@ -74,14 +74,12 @@ describe('rotationForDate', () => {
   })
 })
 
-describe('straddlesRotationBoundary / rotationBoundaryNote', () => {
+describe('rotationBoundaryNote', () => {
   it('does not straddle when the whole range sits inside one block', () => {
-    expect(straddlesRotationBoundary([EC_ROTATION, OT_ROTATION], '2027-01-10', '2027-01-20')).toBe(false)
     expect(rotationBoundaryNote([EC_ROTATION, OT_ROTATION], '2027-01-10', '2027-01-20')).toBeNull()
   })
 
   it('straddles when dateTo extends past the current rotation covering dateFrom', () => {
-    expect(straddlesRotationBoundary([EC_ROTATION, OT_ROTATION], '2027-02-20', '2027-03-05')).toBe(true)
     const note = rotationBoundaryNote([EC_ROTATION, OT_ROTATION], '2027-02-20', '2027-03-05')
     expect(note).toMatch(/next rotation/)
     expect(note).toMatch('2027-03-01')
@@ -90,10 +88,6 @@ describe('straddlesRotationBoundary / rotationBoundaryNote', () => {
   it('notes an open-ended straddle when no next rotation is on record yet', () => {
     const note = rotationBoundaryNote([EC_ROTATION], '2027-02-20', '2027-03-05')
     expect(note).toMatch(/no rotation is assigned yet/)
-  })
-
-  it('does not straddle when dateFrom has no current rotation at all', () => {
-    expect(straddlesRotationBoundary([EC_ROTATION, OT_ROTATION], '2027-06-01', '2027-07-01')).toBe(false)
   })
 })
 

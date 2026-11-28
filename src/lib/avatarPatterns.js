@@ -17,21 +17,6 @@ const PATTERN_SHAPES = {
 // Shapes that read better as an outline than a filled silhouette.
 const STROKE_PATTERNS = new Set(['spirals'])
 
-export const PATTERN_TYPES = [
-  { key: 'dots', label: 'Dots' },
-  { key: 'hearts', label: 'Hearts' },
-  { key: 'stars', label: 'Stars' },
-  { key: 'diamonds', label: 'Diamonds' },
-  { key: 'checkerboard', label: 'Checkerboard' },
-  { key: 'squares', label: 'Squares' },
-  { key: 'spirals', label: 'Spirals' },
-  { key: 'triangles', label: 'Triangles' },
-]
-
-export function randomPatternType() {
-  return PATTERN_TYPES[Math.floor(Math.random() * PATTERN_TYPES.length)].key
-}
-
 function hexToHsl(hex) {
   const r = parseInt(hex.slice(1, 3), 16) / 255
   const g = parseInt(hex.slice(3, 5), 16) / 255

@@ -204,5 +204,3 @@ export async function fetchMonthMinimums({ profiles, year, month }) {
   })]))
 }
 
-// The fields a profile select needs for monthMinimum.
-export const MINIMUM_PROFILE_FIELDS = 'id, category, contract_type, min_hours, ec_start_date, scheduled_inactive_date'

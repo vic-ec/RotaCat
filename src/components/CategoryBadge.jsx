@@ -53,27 +53,3 @@ export default function CategoryBadge({ label, size = 20, className = '', fill =
   )
 }
 
-// A day cell showing every category present at once (the mobile month
-// glance, the mobile day cell) only has room for 4 badges before it stops
-// being readable — shows the first 3 plus a "+N" chip for the rest rather
-// than shrinking every badge to fit all 5. Consultant is uncapped, so a
-// 5-category day (all 4 capacity columns plus Consultant) is rare but
-// possible. Takes the same `fill` as the badges it stands in for, so a
-// capacity-coloured row doesn't end on a neutral chip.
-export function CategoryOverflowChip({ count, size = 16, fill = NEUTRAL_FILL, textFill = '#FFFFFF' }) {
-  return (
-    <span
-      className="flex flex-shrink-0 items-center justify-center rounded-full font-bold"
-      style={{
-        width: size,
-        height: size,
-        fontSize: Math.max(7, Math.round(size * 0.5)),
-        background: fill,
-        color: textFill,
-        border: `1px solid ${RING}`,
-      }}
-    >
-      +{count}
-    </span>
-  )
-}

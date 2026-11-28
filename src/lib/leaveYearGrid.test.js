@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  columnForLeaveCategory, labelForLeaveCategory, monthsForYear, quartersForYear, datesInMonth, weeksForMonth,
+  columnForLeaveCategory, labelForLeaveCategory, monthsForYear, datesInMonth, weeksForMonth,
   buildLeaveByDate, countByColumnPerDate, LEAVE_CAPACITY_COLUMNS,
   totalLeaveSlotsForDate, capacityStateForCount, totalLeaveCeiling, LEAVE_CAPACITY_STATES,
 } from './leaveYearGrid'
@@ -54,20 +54,12 @@ describe('labelForLeaveCategory', () => {
   })
 })
 
-describe('monthsForYear / quartersForYear', () => {
+describe('monthsForYear', () => {
   it('returns 12 months in order', () => {
     const months = monthsForYear(2026)
     expect(months).toHaveLength(12)
     expect(months[0]).toEqual({ year: 2026, month: 1, label: 'January' })
     expect(months[11]).toEqual({ year: 2026, month: 12, label: 'December' })
-  })
-
-  it('chunks into 4 quarters of 3 months each', () => {
-    const quarters = quartersForYear(2026)
-    expect(quarters).toHaveLength(4)
-    expect(quarters.map(q => q.months.length)).toEqual([3, 3, 3, 3])
-    expect(quarters[0].months.map(m => m.month)).toEqual([1, 2, 3])
-    expect(quarters[3].months.map(m => m.month)).toEqual([10, 11, 12])
   })
 })
 

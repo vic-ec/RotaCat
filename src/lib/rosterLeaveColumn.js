@@ -8,13 +8,29 @@
 // change to which weekend someone works, not time away, so it is in
 // neither. A range whose type this viewer cannot see (null) counts as
 // leave: the person is away, which is all the column claims.
-import { leaveTypeGroupKey } from './leaveMatrix'
+import { leaveTypeGroupKey, LEAVE_GROUP_OPTIONS } from './leaveMatrix'
 import { leaveTypeCode } from './leaveRequests'
 
 const NOT_AWAY = new Set(['weekend_exception'])
 
+// The order within a day: by leave type (the matrix's group order: Annual,
+// Sick, Family / Special, Study…, then the type's code within a group; a
+// type this viewer can't see last), then by surname. The initial the
+// roster adds to tell two of a surname apart ("A. Van Zyl") is ignored, so
+// Van Zyl sorts under V.
+const GROUP_RANK = new Map(LEAVE_GROUP_OPTIONS.map((g, i) => [g.key, i]))
+const surnameKey = name => String(name || '').replace(/^\p{Lu}\.\s+/u, '')
+function byTypeThenSurname(a, b) {
+  const ga = a.type ? GROUP_RANK.get(leaveTypeGroupKey(a.type)) ?? 98 : 99
+  const gb = b.type ? GROUP_RANK.get(leaveTypeGroupKey(b.type)) ?? 98 : 99
+  if (ga !== gb) return ga - gb
+  const codes = (a.code || '').localeCompare(b.code || '')
+  if (codes) return codes
+  return surnameKey(a.name).localeCompare(surnameKey(b.name)) || a.name.localeCompare(b.name)
+}
+
 // { [date]: { leave: [{ profileId, name, type, code }], course: [...] } } for each
-// date in `dates`, names sorted. `nameOf(profileId)` returns the short
+// date in `dates`, sorted by leave type then surname (byTypeThenSurname). `nameOf(profileId)` returns the short
 // roster name, or a falsy value to leave someone out (not on this roster's
 // staff list).
 export function leaveByDate(leaveByProfile, dates, nameOf) {
@@ -35,8 +51,8 @@ export function leaveByDate(leaveByProfile, dates, nameOf) {
     }
   }
   for (const date of dates) {
-    out[date].leave.sort((a, b) => a.name.localeCompare(b.name))
-    out[date].course.sort((a, b) => a.name.localeCompare(b.name))
+    out[date].leave.sort(byTypeThenSurname)
+    out[date].course.sort(byTypeThenSurname)
   }
   return out
 }

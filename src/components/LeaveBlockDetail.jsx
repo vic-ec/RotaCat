@@ -53,15 +53,18 @@ export default function LeaveBlockDetail({ request, onClose, showClose, canCance
 
   return (
     <>
+      {/* In a side panel (no window title of its own): "Leave details"
+          with the close button on that row, as the phone's window has. */}
       {showClose && (
-        <div className="mb-2 flex justify-end">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h3 className="font-display text-base font-semibold text-ink">Leave details</h3>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="btn-close h-6 w-6 text-ink-muted"
+            className="btn-close h-8 w-8 flex-shrink-0 text-ink-muted"
           >
-            <X className="h-3.5 w-3.5" />
+            <X className="h-4 w-4" />
           </button>
         </div>
       )}
@@ -71,6 +74,7 @@ export default function LeaveBlockDetail({ request, onClose, showClose, canCance
         categoryLabel={categoryLabel}
         totalDays={calDays}
         annualLeaveDays={annualLeaveDays}
+        periodOnly
       />
 
       <div className="mt-4 border-t border-slate-line pt-3">

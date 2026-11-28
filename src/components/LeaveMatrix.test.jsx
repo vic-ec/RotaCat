@@ -31,7 +31,7 @@ describe('LeaveMatrix', () => {
     expect(screen.queryByText('Family / Special')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Legend' }))
     expect(screen.getByText('Family / Special')).toBeInTheDocument() // a legend-only label
-    expect(screen.getByText('Bo Carter')).toBeInTheDocument()
+    expect(screen.getAllByText('Bo Carter').length).toBeGreaterThan(0)
     expect(screen.getByText('Di Evans')).toBeInTheDocument()
     // grouped by capacity column
     expect(screen.getByText('MO')).toBeInTheDocument()
@@ -57,14 +57,27 @@ describe('LeaveMatrix', () => {
   it('shows who is on leave right now by default', () => {
     render(<LeaveMatrix requests={requests} />)
     expect(screen.getAllByText('On leave now').length).toBeGreaterThan(0)
-    // Carter's approved leave covers today -> a chip; Evans' pending leave does not.
-    expect(screen.getAllByText('Carter').length).toBeGreaterThan(0)
-    expect(screen.queryByText('Evans')).toBeNull()
+    // Carter's approved leave covers today -> a plain name; Evans' pending leave does not.
+    const names = screen.getAllByTestId('on-leave-now-name').map(n => n.textContent)
+    expect(names).toContain('Bo Carter')
+    expect(names).not.toContain('Di Evans')
+  })
+
+  it('a name under On leave now opens that leave in Leave details underneath; the year sits in the panel', () => {
+    render(<LeaveMatrix requests={requests} />)
+    expect(screen.getByTestId('matrix-year')).toHaveTextContent(String(new Date().getFullYear()))
+    expect(screen.queryByTestId('matrix-detail')).not.toBeInTheDocument()
+    fireEvent.click(screen.getAllByTestId('on-leave-now-name').find(n => n.textContent === 'Bo Carter'))
+    const detail = screen.getByTestId('matrix-detail')
+    expect(detail).toHaveTextContent('Leave details')
+    expect(within(detail).getByText('Exact dates')).toBeInTheDocument()
+    // On leave now stays above it.
+    expect(screen.getAllByText('On leave now').length).toBeGreaterThan(0)
   })
 
   it('drills from a doctor to a block’s full details', () => {
     render(<LeaveMatrix requests={requests} />)
-    fireEvent.click(screen.getByText('Bo Carter'))
+    fireEvent.click(screen.getAllByText('Bo Carter')[0])
     expect(screen.getByText('Tap a leave block for full details.')).toBeInTheDocument()
 
     // Open the annual block from the doctor's list.

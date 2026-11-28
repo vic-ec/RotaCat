@@ -45,7 +45,7 @@ function Legend() {
     <LegendSheet
       title="Legend"
       trigger={onClick => (
-        <button type="button" onClick={onClick} aria-label="Legend" title="Legend" className="btn-utility h-[34px] w-[34px] flex-shrink-0 p-0"><List className="h-4 w-4" /></button>
+        <button type="button" onClick={onClick} aria-label="Legend" title="Legend" className="btn-utility h-[30px] w-[30px] flex-shrink-0 p-0"><List className="h-4 w-4" /></button>
       )}
     >
       <div className="flex flex-col gap-2 text-sm text-ink">
@@ -57,7 +57,7 @@ function Legend() {
   )
 }
 
-const ROW_GRID = 'md:grid md:grid-cols-[minmax(0,2fr)_minmax(0,1.1fr)_4.5rem_minmax(0,1.7fr)] md:items-center md:gap-3'
+const ROW_GRID = 'md:grid md:grid-cols-[minmax(0,2fr)_minmax(0,1.1fr)_minmax(0,1.3fr)_minmax(0,1.7fr)] md:items-center md:gap-3'
 
 // One person away: columns from md, the two-line row on a phone.
 function AwayRow({ lr, groupKey, selected, onClick }) {
@@ -89,7 +89,12 @@ function AwayRow({ lr, groupKey, selected, onClick }) {
         </span>
       </span>
       <span className="hidden truncate text-sm text-ink-muted md:block" data-testid="away-category">{category}</span>
-      <span className="hidden md:block"><LeaveTypePill leaveType={lr.leave_type} className="text-[12px]" /></span>
+      {/* The leave as the details panel shows it: the tinted icon box and
+          the type's name. */}
+      <span className="hidden min-w-0 items-center gap-1.5 md:flex">
+        <LeaveTypeIcon leaveType={lr.leave_type} size="sm" />
+        <span className="truncate text-sm text-ink">{label}</span>
+      </span>
       <span className="hidden truncate text-sm text-ink md:block">{when}</span>
     </button>
   )

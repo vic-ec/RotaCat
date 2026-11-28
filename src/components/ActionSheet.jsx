@@ -27,7 +27,9 @@ import { X as CloseIcon } from 'lucide-react'
 // card's hover:brightness-95 is a filter) was being positioned against that
 // card instead, and jumped between the card and the middle of the screen as
 // the pointer moved on and off it.
-export function ActionSheet({ title, onBack, onClose, children }) {
+// `header`, when given, replaces the title row (the roster's shift menu
+// draws its own: who, then the date and shift, with the close button).
+export function ActionSheet({ title, header = null, onBack, onClose, children }) {
   return createPortal(
     <div className="pointer-events-auto fixed inset-0 z-50 flex items-end justify-center scrim sm:items-center sm:px-4" onClick={e => { e.stopPropagation(); onClose?.(e) }}>
       <div
@@ -37,7 +39,8 @@ export function ActionSheet({ title, onBack, onClose, children }) {
         className="card flex max-h-[80vh] w-full max-w-sm flex-col rounded-b-none border-edge p-2 sm:rounded-b-lg"
         onClick={e => e.stopPropagation()}
       >
-        {title && (
+        {header}
+        {title && !header && (
           <div className="flex flex-shrink-0 items-center justify-between gap-2 px-3 pb-1 pt-2">
             {onBack && (
               <button

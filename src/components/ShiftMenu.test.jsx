@@ -377,3 +377,22 @@ describe('ShiftMenu — cancel leave and swap', () => {
     expect(onSwap).toHaveBeenCalledWith(row, other, 'WD_22')
   })
 })
+
+describe('ShiftMenu — header', () => {
+  it('names who on the top row, in the roster cell style, with the date and shift under it', () => {
+    open(row)
+    const header = screen.getByTestId('shift-menu-header')
+    expect(within(header).getByTestId('shift-menu-who')).toHaveTextContent('Alice Anderson')
+    expect(within(header).getByTestId('shift-menu-who').className).toMatch(/border-l-\[3px\]/)
+    expect(header).toHaveTextContent(/Mon 10 Aug · /)
+    expect(within(header).getByRole('button', { name: 'Close' })).toBeInTheDocument()
+  })
+
+  it('an open locum slot reads as one, dashed', () => {
+    open(slotVacated)
+    const who = screen.getByTestId('shift-menu-who')
+    expect(who).toHaveTextContent('Open locum slot')
+    expect(who.className).toMatch(/border-dashed/)
+  })
+})
+

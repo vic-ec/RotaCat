@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
-import { Info } from 'lucide-react'
+import { CircleHelp, X } from 'lucide-react'
+import { useSwatch } from '../lib/useSwatch'
 import InfoPopover from './InfoPopover'
 import DateFieldButton from './DateFieldButton'
 import SelectMenu from './SelectMenu'
@@ -38,8 +39,8 @@ import { shortDate } from '../lib/reviewLog'
 const REASON_LABELS = { leave: 'leave', swap: 'swap', no_show: 'no-show', other: 'other reason' }
 
 // A choice: a radio and its label on one line; what it does is behind an
-// (i) at the right of the row (tap, or hover on a desktop), so the menu
-// stays short enough to fit on screen. The (i) sits outside the label so
+// (?) at the right of the row (tap, or hover on a desktop), so the menu
+// stays short enough to fit on screen. The (?) sits outside the label so
 // opening it never picks the choice.
 function Choice({ value, label, hint, danger = false, disabled = false, checked, onChange }) {
   return (
@@ -58,7 +59,7 @@ function Choice({ value, label, hint, danger = false, disabled = false, checked,
       </label>
       {hint && (
         <span className="flex-shrink-0 pr-1" data-testid="choice-info">
-          <InfoPopover icon={<Info className="h-4 w-4" aria-hidden="true" />} title={label} label={`About ${label}`} hover>
+          <InfoPopover icon={<CircleHelp className="h-4 w-4" aria-hidden="true" />} title={label} label={`About ${label}`} hover>
             <p className="text-sm text-ink">{hint}</p>
           </InfoPopover>
         </span>
@@ -287,8 +288,38 @@ function ReasonForm({ entry, name, activeLeave, onSave, onBack }) {
   )
 }
 
+// The menu's header: who, in the roster's own cell style (a doctor's colour
+// as the left border; a locum or open slot dashed, as on the grid), with
+// the close button on that row; the date and shift on the line under it.
+const WHO_STYLE = {
+  doctor: 'rounded-sm border border-slate-line border-l-[3px] bg-canvas-raised text-ink',
+  locum: 'rounded border border-dashed border-flagAmber bg-flagAmber-bg text-flagAmber',
+  open: 'rounded border border-dashed border-flagRed bg-canvas-raised text-flagRed',
+  add: 'rounded border border-dashed border-accent/70 bg-canvas-raised text-accent-dark',
+}
+function MenuHeader({ who, sub, onClose }) {
+  const swatch = useSwatch()
+  return (
+    <div className="flex flex-shrink-0 items-start justify-between gap-2 border-b border-slate-line px-3 pb-2.5 pt-2" data-testid="shift-menu-header">
+      <div className="grid min-w-0 gap-1.5">
+        <span
+          className={`inline-flex max-w-full items-center justify-self-start px-2 py-0.5 text-[15px] font-semibold ${WHO_STYLE[who.kind]}`}
+          style={who.kind === 'doctor' && who.color ? { borderLeftColor: swatch.stroke(who.color) } : undefined}
+          data-testid="shift-menu-who"
+        >
+          <span className="truncate">{who.text}</span>
+        </span>
+        <span className="text-xs font-semibold uppercase tracking-wide text-ink-muted">{sub}</span>
+      </div>
+      <button type="button" onClick={onClose} aria-label="Close" className="btn-close h-8 w-8 flex-shrink-0 text-ink-muted">
+        <X className="h-4 w-4" aria-hidden="true" />
+      </button>
+    </div>
+  )
+}
+
 // The panel from md up: the sheet's card, placed beside the cell.
-function AnchoredPanel({ anchorRect, title, onClose, children }) {
+function AnchoredPanel({ anchorRect, title, header, onClose, children }) {
   const ref = useRef(null)
   useDismissablePopover(true, onClose, ref)
   const width = 320
@@ -306,10 +337,7 @@ function AnchoredPanel({ anchorRect, title, onClose, children }) {
       style={{ ...style, width }}
       className="card fixed z-50 flex flex-col border-edge p-2 shadow-raised"
     >
-      <div className="flex flex-shrink-0 items-center justify-between gap-2 px-3 pb-1 pt-2">
-        <p className="min-w-0 flex-1 text-xs font-semibold uppercase tracking-wide leading-5 text-ink-muted">{title}</p>
-        <button type="button" onClick={onClose} aria-label="Close" className="btn-close h-6 w-6 flex-shrink-0 text-ink-muted">×</button>
-      </div>
+      {header}
       <div className="min-h-0 overflow-y-auto">{children}</div>
     </div>,
     document.body
@@ -366,6 +394,14 @@ export default function ShiftMenu({
     : holder || 'Doctor'
   const timesNow = adjustedTimesLabel(entry)
   const title = `${what} · ${shortDate(date)} · ${labelForShiftCode(shiftCode)}${vacatedName && kind !== 'no-cover' ? ` · covering ${vacatedName} (${reasonText})` : ''}`
+  // The header's top row: who this is, as the grid draws them.
+  const colorOf = id => (profiles || []).find(p => p.id === id)?.color_code || '#4A90D9'
+  const who = kind === 'add' ? { kind: 'add', text: 'Add to this shift' }
+    : kind === 'no-cover' ? { kind: 'doctor', text: vacatedName || 'Doctor', color: colorOf(entry?.vacated_profile_id) }
+    : kind === 'locum' ? { kind: 'locum', text: `[${locumName || 'Locum'}]` }
+    : kind === 'slot' || kind === 'slot-vacated' ? { kind: 'open', text: 'Open locum slot' }
+    : { kind: 'doctor', text: holder || 'Doctor', color: colorOf(entry?.profile_id) }
+  const sub = `${shortDate(date)} · ${labelForShiftCode(shiftCode)}${kind === 'no-cover' ? ' · no cover' : vacatedName ? ` · covering ${vacatedName} (${reasonText})` : ''}`
 
   const close = () => onClose()
 
@@ -720,8 +756,9 @@ export default function ShiftMenu({
     body = <Options groups={groups} onContinue={run} onClose={close} />
   }
 
+  const header = <MenuHeader who={who} sub={sub} onClose={close} />
   if (wide) {
-    return <AnchoredPanel anchorRect={anchorRect} title={title} onClose={close}>{body}</AnchoredPanel>
+    return <AnchoredPanel anchorRect={anchorRect} title={title} header={header} onClose={close}>{body}</AnchoredPanel>
   }
-  return <ActionSheet title={title} onClose={close}>{body}</ActionSheet>
+  return <ActionSheet title={title} header={header} onClose={close}>{body}</ActionSheet>
 }

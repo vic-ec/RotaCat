@@ -15,7 +15,8 @@ import LeaveBlockDetail from './LeaveBlockDetail'
 import { todayStr, MONTH_ABBR, formatWeekdayDate } from '../lib/dateRange'
 import { useIsDesktop } from '../lib/useIsDesktop'
 import { useFillToViewport } from '../lib/useFillToViewport'
-import { columnForLeaveCategory, LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN } from '../lib/leaveYearGrid'
+import { columnForLeaveCategory, labelForLeaveCategory, LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN } from '../lib/leaveYearGrid'
+import { useSwatch } from '../lib/useSwatch'
 import {
   LEAVE_GROUP_OPTIONS, LEAVE_TYPE_LABELS, leaveTypeGroupKey, leaveGroupInk,
   blockPixelSpan, buildDoctorLeaveRows, leaveActiveOn, formatDMY,
@@ -120,13 +121,16 @@ function TodayLine({ year, monthColWidth }) {
 }
 
 // A doctor's timeline — one track row per non-empty status (approved above
-// pending). The name button lives in the first track's sticky cell; the
-// second track's cell just carries the muted status label.
+// pending). The first track's sticky cell carries the name as All Leave and
+// Hours Summary draw it (a pill in the doctor's colour) with the category
+// under it; a pending track's cell says "Pending review".
 function DoctorRows({ row, year, selected, onSelectDoctor, onSelectBlock, gridTemplateColumns, monthColWidth, striped }) {
   const tracks = []
   if (row.approved.length) tracks.push({ status: 'approved', label: 'Approved', items: row.approved })
   if (row.pending.length) tracks.push({ status: 'pending', label: REVIEW_STATUS_LABELS.pending, items: row.pending })
   const doctorSelected = selected?.kind === 'doctor' && selected.doctorId === row.doctor.id
+  const swatch = useSwatch()
+  const category = row.doctor.category ? labelForLeaveCategory(row.doctor.category, row.doctor.contract_type) : ''
 
   return (
     <div data-doctor-id={row.doctor.id} className="border-b border-slate-line last:border-0">
@@ -138,20 +142,22 @@ function DoctorRows({ row, year, selected, onSelectDoctor, onSelectBlock, gridTe
             }`}
           >
             {i === 0 ? (
-              <button
-                type="button"
-                onClick={() => onSelectDoctor(row.doctor)}
-                title={fullName(row.doctor)}
-                className={`truncate text-left text-sm font-medium transition-colors hover:text-accent ${
-                  doctorSelected ? 'text-accent' : 'text-ink'
-                }`}
-              >
-                {fullName(row.doctor)}
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => onSelectDoctor(row.doctor)}
+                  title={fullName(row.doctor)}
+                  aria-label={fullName(row.doctor)}
+                  className={`max-w-full self-start truncate whitespace-nowrap rounded px-1.5 py-0.5 text-left text-[10px] font-medium ${doctorSelected ? 'ring-2 ring-accent' : ''}`}
+                  style={swatch.fill(row.doctor.color_code || '#4A90D9', { text: true })}
+                >
+                  {fullName(row.doctor)}
+                </button>
+                <span className="mt-0.5 truncate text-[10px] text-ink-muted">{track.status === 'pending' ? track.label : category}</span>
+              </>
             ) : (
-              <span className="h-0" aria-hidden="true" />
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-ink-muted">{track.label}</span>
             )}
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-ink-muted">{track.label}</span>
           </div>
           {/* Faint month lines, so a bar reads against its month without
               tracing up to the header; alternate doctors are a touch

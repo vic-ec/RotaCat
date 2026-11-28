@@ -34,10 +34,11 @@ describe('LeaveMatrix', () => {
     expect(screen.getAllByText('Bo Carter').length).toBeGreaterThan(0)
     expect(screen.getByText('Di Evans')).toBeInTheDocument()
     // grouped by capacity column
-    expect(screen.getByText('MO')).toBeInTheDocument()
-    expect(screen.getByText('Registrar')).toBeInTheDocument()
-    // each doctor's non-empty track is labelled
-    expect(screen.getAllByText('Approved').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('MO').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Registrar').length).toBeGreaterThan(0)
+    // The name is a pill in the doctor's colour (as All Leave), the category
+    // under it; only a pending track is labelled.
+    expect(screen.queryByText('Approved')).not.toBeInTheDocument()
     expect(screen.getAllByText('Pending review').length).toBeGreaterThan(0)
   })
 

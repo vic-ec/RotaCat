@@ -698,10 +698,11 @@ export default function ShiftMenu({
       add: [{ choices: [{ value: 'pick', label: 'Add a doctor or locum', hint: 'Pick who works this shift' }] }],
       vacancy: covered ? [coverGroup, lateGroup, absentGroup] : [
         rearrangeGroup,
-        { title: 'Absence', choices: [
+        // Mark absent sits last, under the times and attendance choices.
+        { title: 'Times and attendance', choices: [
+          ...timesGroup.choices,
           { value: 'vacancy', label: 'Mark absent', hint: 'Sick, on leave, no-show… Struck through, with cover' },
         ] },
-        timesGroup,
       ],
       'draft-doctor': covered ? [coverGroup, absentGroup] : [rearrangeGroup, timesGroup],
       'slot-vacated': [

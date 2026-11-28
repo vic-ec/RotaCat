@@ -1,4 +1,6 @@
 import { useRef, useState } from 'react'
+import { Info } from 'lucide-react'
+import InfoPopover from './InfoPopover'
 import DateFieldButton from './DateFieldButton'
 import SelectMenu from './SelectMenu'
 import { VACANCY_LEAVE_TYPE_OPTIONS } from '../lib/rosterVacancy'
@@ -35,25 +37,33 @@ import { shortDate } from '../lib/reviewLog'
 
 const REASON_LABELS = { leave: 'leave', swap: 'swap', no_show: 'no-show', other: 'other reason' }
 
-// A choice: a radio on the first line of the label, the consequence under
-// it. The form the vacancy dialog uses, so the two menus read alike.
+// A choice: a radio and its label on one line; what it does is behind an
+// (i) at the right of the row (tap, or hover on a desktop), so the menu
+// stays short enough to fit on screen. The (i) sits outside the label so
+// opening it never picks the choice.
 function Choice({ value, label, hint, danger = false, disabled = false, checked, onChange }) {
   return (
-    <label className={`flex min-h-[44px] items-start gap-2.5 px-3 py-2 text-sm md:min-h-0 ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-canvas-sunken'}`}>
-      <input
-        type="radio"
-        name="shift-menu-choice"
-        value={value}
-        checked={checked}
-        disabled={disabled}
-        onChange={() => onChange(value)}
-        className="mt-[3px] h-4 w-4 flex-shrink-0 accent-[rgb(var(--color-accent))]"
-      />
-      <span className="flex min-w-0 flex-col">
-        <span className={`font-medium ${danger ? 'text-flagRed' : 'text-ink'}`}>{label}</span>
-        {hint && <span className={`text-xs ${danger ? 'text-flagRed/80' : 'text-ink-muted'}`}>{hint}</span>}
-      </span>
-    </label>
+    <div className={`flex items-center ${disabled ? 'opacity-50' : ''}`}>
+      <label className={`flex min-h-[44px] min-w-0 flex-1 items-center gap-2.5 px-3 py-1.5 text-sm md:min-h-[36px] ${disabled ? 'cursor-not-allowed' : 'cursor-pointer hover:bg-canvas-sunken'}`}>
+        <input
+          type="radio"
+          name="shift-menu-choice"
+          value={value}
+          checked={checked}
+          disabled={disabled}
+          onChange={() => onChange(value)}
+          className="h-4 w-4 flex-shrink-0 accent-[rgb(var(--color-accent))]"
+        />
+        <span className={`min-w-0 font-medium ${danger ? 'text-flagRed' : 'text-ink'}`}>{label}</span>
+      </label>
+      {hint && (
+        <span className="flex-shrink-0 pr-1" data-testid="choice-info">
+          <InfoPopover icon={<Info className="h-4 w-4" aria-hidden="true" />} title={label} label={`About ${label}`} hover>
+            <p className="text-sm text-ink">{hint}</p>
+          </InfoPopover>
+        </span>
+      )}
+    </div>
   )
 }
 
@@ -66,7 +76,8 @@ function Group({ title, children }) {
   )
 }
 
-// The menu proper: groups of choices, Cancel and Continue.
+// The menu proper: groups of choices, then Continue and Cancel (the
+// action first, as in every window's footer).
 function Options({ groups, onContinue, onClose, closeLabel = 'Cancel' }) {
   const [choice, setChoice] = useState('')
   const chosen = groups.flatMap(g => g.choices).find(c => c.value === choice)
@@ -80,8 +91,8 @@ function Options({ groups, onContinue, onClose, closeLabel = 'Cancel' }) {
         ))}
       </div>
       <div className="flex flex-nowrap gap-2 border-t border-slate-line px-3 pb-1 pt-3">
-        <button type="button" onClick={onClose} className="btn-secondary min-h-[44px] flex-1 whitespace-nowrap text-sm md:min-h-0">{closeLabel}</button>
         <button type="submit" disabled={!chosen} className={`${chosen?.danger ? 'btn-danger' : 'btn-primary'} min-h-[44px] flex-1 whitespace-nowrap text-sm md:min-h-0`}>Continue</button>
+        <button type="button" onClick={onClose} className="btn-secondary min-h-[44px] flex-1 whitespace-nowrap text-sm md:min-h-0">{closeLabel}</button>
       </div>
     </form>
   )
@@ -92,8 +103,8 @@ function Confirm({ question, confirmLabel, onConfirm, onBack }) {
     <div className="space-y-3 p-3">
       <p className="text-sm text-ink">{question}</p>
       <div className="flex gap-2">
-        <button type="button" onClick={onBack} className="btn-secondary min-h-[44px] flex-1 text-sm md:min-h-0">Back</button>
         <button type="button" onClick={onConfirm} className="btn-danger min-h-[44px] flex-1 text-sm md:min-h-0">{confirmLabel}</button>
+        <button type="button" onClick={onBack} className="btn-secondary min-h-[44px] flex-1 text-sm md:min-h-0">Back</button>
       </div>
     </div>
   )
@@ -123,8 +134,8 @@ function MoveCoverForm({ entry, shiftCode, who, shiftsForDate, onSave, onBack })
       <SelectMenu id="move-cover-shift" value={code} onChange={setCode} options={options} placeholder="Choose a shift…" />
       <p className="text-xs text-ink-muted">This shift reopens as [ ], with the absent doctor still struck through.</p>
       <div className="flex flex-nowrap gap-2">
-        <button type="button" onClick={onBack} className="btn-secondary min-h-[44px] flex-1 whitespace-nowrap text-sm md:min-h-0">Back</button>
         <button type="button" disabled={!code} onClick={() => onSave({ date, code })} className="btn-primary min-h-[44px] flex-1 whitespace-nowrap text-sm md:min-h-0">Move</button>
+        <button type="button" onClick={onBack} className="btn-secondary min-h-[44px] flex-1 whitespace-nowrap text-sm md:min-h-0">Back</button>
       </div>
     </div>
   )
@@ -207,8 +218,8 @@ function MoveForm({ entry, shiftCode, who, monthStart, monthEnd, shiftsForDate, 
         ))}
       </div>
       <div className="flex flex-nowrap gap-2 pt-1">
-        <button type="button" onClick={onBack} className="btn-secondary min-h-[44px] flex-1 whitespace-nowrap text-sm md:min-h-0">Back</button>
         <button type="button" disabled={!code} onClick={() => onSave({ date, code, leave })} className="btn-primary min-h-[44px] flex-1 whitespace-nowrap text-sm md:min-h-0">{leave === 'fill' ? 'Next' : 'Move'}</button>
+        <button type="button" onClick={onBack} className="btn-secondary min-h-[44px] flex-1 whitespace-nowrap text-sm md:min-h-0">Back</button>
       </div>
     </div>
   )
@@ -269,8 +280,8 @@ function ReasonForm({ entry, name, activeLeave, onSave, onBack }) {
         </label>
       )}
       <div className="flex flex-nowrap gap-2">
-        <button type="button" onClick={onBack} className="btn-secondary min-h-[44px] flex-1 whitespace-nowrap text-sm md:min-h-0">Back</button>
         <button type="submit" disabled={!canSave} className="btn-primary min-h-[44px] flex-1 whitespace-nowrap text-sm md:min-h-0">Save</button>
+        <button type="button" onClick={onBack} className="btn-secondary min-h-[44px] flex-1 whitespace-nowrap text-sm md:min-h-0">Back</button>
       </div>
     </form>
   )
@@ -282,6 +293,10 @@ function AnchoredPanel({ anchorRect, title, onClose, children }) {
   useDismissablePopover(true, onClose, ref)
   const width = 320
   const style = anchorRect ? computeAnchoredPosition(anchorRect, width, { maxHeight: 520 }) : { left: 16, top: 80 }
+  // Never taller than the room on its side of the cell, so its top (or
+  // foot) can't run off the screen; what doesn't fit scrolls inside it.
+  const room = style.top != null ? window.innerHeight - style.top - 12 : window.innerHeight - style.bottom - 12
+  style.maxHeight = Math.max(200, room)
   return createPortal(
     <div
       ref={ref}
@@ -289,7 +304,7 @@ function AnchoredPanel({ anchorRect, title, onClose, children }) {
       aria-modal="false"
       aria-label={title}
       style={{ ...style, width }}
-      className="card fixed z-50 flex max-h-[calc(100vh-24px)] flex-col border-edge p-2 shadow-raised"
+      className="card fixed z-50 flex flex-col border-edge p-2 shadow-raised"
     >
       <div className="flex flex-shrink-0 items-center justify-between gap-2 px-3 pb-1 pt-2">
         <p className="min-w-0 flex-1 text-xs font-semibold uppercase tracking-wide leading-5 text-ink-muted">{title}</p>

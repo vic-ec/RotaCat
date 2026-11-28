@@ -136,7 +136,7 @@ export default function RosterGridPage() {
   const [consultantProfiles, setConsultantProfiles] = useState([]) // Consultant-category profiles, for the Consultant column dropdown
   const [shiftTypes, setShiftTypes] = useState({}) // keyed by id -> code
   const [shiftTypeRows, setShiftTypeRows] = useState({}) // keyed by id -> { code, start_time, end_time }
-  // "Absence" on the edit bar: the Capture leave form, for this month.
+  // "Capture" on the edit bar: the Capture leave form, for this month.
   const [absenceOpen, setAbsenceOpen] = useState(false)
   // Leave being cancelled from the roster (the struck-through name's popup
   // or the shift menu): the request, in CancelLeaveModal's shape.
@@ -1108,7 +1108,7 @@ export default function RosterGridPage() {
       )}
 
       {absenceOpen && rosterMonth && (
-        <Modal title="Record an absence" onClose={() => setAbsenceOpen(false)} centered>
+        <Modal title="Capture leave or absence" onClose={() => setAbsenceOpen(false)} centered>
           {/* Approved on the spot, like Team Leave's Capture leave. Stays
               open so several can be entered in one sitting from the paper
               roster; the grid's leave re-reads after each. */}

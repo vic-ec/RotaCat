@@ -8,12 +8,22 @@ import { ROTATIONS_PAGE_TITLE, ROTATIONS_MENU_ITEMS } from './rotationsMenuItems
 // The toolbar pieces every Rotations tab (Active, Upcoming, Completed)
 // shares, so the three toolbars can't drift apart.
 
+// Laid out like the leave legend (LeaveMatrix's): one row per rotation,
+// a 20px tile then its name, at text-sm. The tile is a grid cell in small —
+// the rotation's colour with its code on it — so the key reads exactly as
+// the cells it explains.
 export function RotationLegendSwatches() {
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
+    <div className="flex flex-col gap-2 text-sm text-ink">
       {ROTATION_TYPE_KEY_OPTIONS.map(o => (
-        <span key={o.key} className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 flex-shrink-0 rounded-sm" style={{ backgroundColor: ROTATION_TYPE_COLOR[o.key] }} />
+        <span key={o.key} className="flex items-center gap-2">
+          <span
+            aria-hidden="true"
+            className="inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-[5px] text-[9px] font-semibold text-white"
+            style={{ backgroundColor: ROTATION_TYPE_COLOR[o.key] }}
+          >
+            {o.code}
+          </span>
           {o.label}
         </span>
       ))}

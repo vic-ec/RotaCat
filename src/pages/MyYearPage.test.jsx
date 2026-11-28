@@ -172,14 +172,14 @@ describe('MyYearPage', () => {
     }
   })
 
-  it('gives an admin "Open in Team Leave" on the doctor\'s row and leave', async () => {
+  it('gives an admin "Open in All Leave" on the doctor\'s row and leave', async () => {
     mockAuth = { profile: doctor(ME, 'Maurice'), isAdmin: true, canSubmitLeave: true }
     renderAt('/my-year')
     await screen.findByTestId('my-year-totals')
     await userEvent.click(screen.getByRole('button', { name: '18 Nov: Sick leave' }))
     const card = screen.getByTestId('selected-day-card')
-    expect(within(card).getByRole('link', { name: /Open in Team Leave/ }))
-      .toHaveAttribute('href', `/leave?tab=team&sub=current&ldoctor=${ME}&lyear=2026&lrequest=k1`)
+    expect(within(card).getByRole('link', { name: /Open in All Leave/ }))
+      .toHaveAttribute('href', '/leave?tab=team&sub=all&lyear=2026&lrequest=k1')
     // Captured by the doctor themselves: nothing said (no Captured row).
     expect(within(card).queryByTestId('day-captured')).not.toBeInTheDocument()
     expect(card.textContent).not.toMatch(/captured by/)

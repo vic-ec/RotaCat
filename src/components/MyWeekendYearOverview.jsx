@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronRight, ExternalLink } from 'lucide-react'
 import { monthsForYear } from '../lib/leaveYearGrid'
-import { todayStr, parseLocalDate } from '../lib/dateRange'
+import { todayStr, formatShortDate } from '../lib/dateRange'
 import {
   saturdaysInMonth, isProfileAssignedToWeekend, weekendExceptionRequestsBySaturday,
   weekendCoverageSummary, weekendHealthState, nextSaturdayToRequestOff, WEEKEND_RULE_BULLETS,
@@ -94,10 +94,6 @@ const STATE_STYLE = {
   // "approved" looking indistinguishable from "never asked".
   approvedOff: { square: 'bg-success-bg ring-1 ring-inset ring-success/45', swatch: 'bg-success', label: 'Weekend off approved' },
   off: { square: 'bg-canvas-sunken', swatch: 'bg-canvas-sunken', label: 'Off' },
-}
-
-function formatShortDate(dateStr) {
-  return parseLocalDate(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 }
 
 // The Weekend Planner's year-overview landing page for a doctor — same

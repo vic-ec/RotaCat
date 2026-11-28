@@ -2,14 +2,7 @@ import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
-
-function ChevronDownIcon(props) {
-  return (
-    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
-    </svg>
-  )
-}
+import { ChevronDown as ChevronDownIcon } from 'lucide-react'
 
 // Drop-in replacement for a plain <select> that opens the app's own styled
 // popover list instead of the browser's native picker — a native <select>'s

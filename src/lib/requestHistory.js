@@ -13,6 +13,7 @@
 //   detail    the one-line "what" (an email change: old → new)
 //
 // Pure functions; the fetch is the page's.
+import { fullName } from './doctorNames'
 
 export const HISTORY_STATUS_OPTIONS = [
   { value: 'approved', label: 'Approved' },
@@ -28,8 +29,6 @@ export const HISTORY_TYPE_OPTIONS = [
   { value: 'deletion', label: 'Account deletion request' },
   { value: 'locum-link', label: 'Locum linked to account' },
 ]
-
-const fullName = p => `${p?.name || ''} ${p?.surname || ''}`.trim()
 
 export function buildRequestHistory({ signups = [], changeRequests = [], linkedContacts = [], typeLabels = {}, formatValue = v => v }) {
   const items = []

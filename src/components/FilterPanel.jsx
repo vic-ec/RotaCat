@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom'
 import ClearableInput from './ClearableInput'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
+import { ChevronDown as ChevronDownIcon, Search as SearchIcon, X as CloseIcon } from 'lucide-react'
+import CheckIcon from './icons/CheckIcon'
 
 // Above this many options, a group's expanded list gets a capped height
 // with its own scrollbar instead of growing the popover indefinitely.
@@ -16,21 +18,6 @@ const SCROLL_CAP_THRESHOLD = 6
 // even if it were briefly short).
 const SEARCH_THRESHOLD = 13
 
-function SearchIcon(props) {
-  return (
-    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="11" cy="11" r="8" />
-      <path d="m21 21-4.3-4.3" />
-    </svg>
-  )
-}
-function ChevronDownIcon(props) {
-  return (
-    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
-    </svg>
-  )
-}
 function FilterIcon(props) {
   return (
     <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -38,21 +25,6 @@ function FilterIcon(props) {
     </svg>
   )
 }
-function CheckIcon(props) {
-  return (
-    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-    </svg>
-  )
-}
-function CloseIcon(props) {
-  return (
-    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M6 6l12 12M18 6L6 18" />
-    </svg>
-  )
-}
-
 // One group's header row (name + selected-count chip + chevron) and, when
 // expanded, its own "All" reset row plus a real multi-select checkbox list.
 // `selected` is a Set of option values; empty = "All". Only ever one group

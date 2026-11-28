@@ -18,10 +18,10 @@ import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { ActionSheet } from './ActionSheet'
 import SectionBar from './SectionBar'
 import LeaveCodeBox from './myYear/LeaveCodeBox'
+import { plural } from '../lib/text'
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const shadeStyle = step => (step > 0 ? { backgroundColor: `var(--month-shade-${step})` } : undefined)
-const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
 const COLUMN_COUNT = 1 + 12 + 6 + 1
 
 // One month for one doctor: each leave entry, the annual / sick / other

@@ -11,8 +11,8 @@ import { leaveDestination } from '../../lib/myYearLinks'
 import LeaveCodeBox from './LeaveCodeBox'
 import YearGlance from './YearGlance'
 import { ActionSheet } from '../ActionSheet'
+import { plural } from '../../lib/text'
 
-const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
 const rangeWithYear = r => `${formatShortDateRange(r.from, r.to)} ${r.to.slice(0, 4)}`
 
 // Same shape as My leave's balance card, six figures instead of three:

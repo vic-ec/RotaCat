@@ -19,8 +19,8 @@
 // fit several controls. `labelFrom`: the breakpoint at which an icon option's
 // word comes back ('sm' by default; 'lg' for a row that is still crowded on
 // a tablet).
-const LABEL_FROM = { sm: 'hidden sm:inline', lg: 'hidden lg:inline', '2xl': 'hidden 2xl:inline' }
-const SHORT_UNTIL = { sm: 'sm:hidden', lg: 'lg:hidden', '2xl': '2xl:hidden' }
+const LABEL_FROM = { sm: 'hidden sm:inline', lg: 'hidden lg:inline', xl: 'hidden xl:inline', '2xl': 'hidden 2xl:inline' }
+const SHORT_UNTIL = { sm: 'sm:hidden', lg: 'lg:hidden', xl: 'xl:hidden', '2xl': '2xl:hidden' }
 
 // `iconOnly`: every option is its icon (or its `shortLabel`) at every width,
 // its name the title — which the app's hint (HintLayer) shows on hover or a

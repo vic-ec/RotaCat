@@ -368,7 +368,9 @@ describe('LeaveAuditReport — By month', () => {
     await screen.findByTestId('all-leave-by-month')
     await user.click(screen.getByRole('button', { name: 'By leave type' }))
     expect(screen.queryByTestId('all-leave-by-month')).not.toBeInTheDocument()
-    expect(await screen.findByLabelText('From')).toBeInTheDocument()
+    // Both views take the year stepper; there are no From / To dates.
+    expect(screen.queryByLabelText('From')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Previous year/ })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'By month' }))
     expect(await screen.findByTestId('all-leave-by-month')).toBeInTheDocument()
   })

@@ -142,7 +142,9 @@ function FilterGroup({ group, expanded, onToggleExpand }) {
 // onChange(nextSet) }]. The trigger's own active state and badge count are
 // derived from the groups' selected sets, so callers never compute that
 // separately.
-export default function FilterPanel({ groups, className = '' }) {
+// `labelFrom`: as ToolbarFacet's — 'xl' keeps the button an icon below a
+// wide desktop.
+export default function FilterPanel({ groups, className = '', labelFrom = 'sm' }) {
   const [open, setOpen] = useState(false)
   const [anchorRect, setAnchorRect] = useState(null)
   const [expandedKey, setExpandedKey] = useState(null)
@@ -181,7 +183,7 @@ export default function FilterPanel({ groups, className = '' }) {
         className={`toolbar-pill ${open || activeCount > 0 ? 'toolbar-pill-active' : 'toolbar-pill-idle'} ${className}`}
       >
         <FilterIcon className="h-4 w-4" />
-        <span className="hidden sm:inline">Filter</span>
+        <span className={labelFrom === 'xl' ? 'hidden xl:inline' : 'hidden sm:inline'}>Filter</span>
         {activeCount > 0 && (
           <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-white/25 text-[10px] font-semibold">
             {activeCount}

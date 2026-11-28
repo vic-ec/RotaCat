@@ -318,6 +318,16 @@ describe('LeaveAuditReport — By month', () => {
     expect(await screen.findByTestId('all-leave-detail')).toHaveTextContent('Exact dates')
   })
 
+  it('a tap selects a doctor\'s row; a second tap clears it', async () => {
+    render(<LeaveAuditReport />, { url: '/' })
+    await screen.findByTestId('all-leave-by-month')
+    const ada = rowFor('Ada Zephyr')
+    fireEvent.click(within(ada).getAllByRole('cell').at(-3))
+    expect(ada).toHaveAttribute('aria-selected', 'true')
+    fireEvent.click(within(ada).getAllByRole('cell').at(-3))
+    expect(ada).toHaveAttribute('aria-selected', 'false')
+  })
+
   it('fills in Since last break, with a Long chip past the threshold', async () => {
     render(<LeaveAuditReport />, { url: '/' })
     await screen.findByTestId('all-leave-by-month')
@@ -353,9 +363,10 @@ describe('LeaveAuditReport — By month', () => {
     expect(within(preview).queryByRole('button', { name: 'Close' })).not.toBeInTheDocument()
     expect(cell).toHaveAttribute('aria-pressed', 'false')
     await user.click(cell)
-    // Pinned: the month turns teal, the hint goes, and an × closes it.
+    // Pinned: the month is outlined in teal (not filled), the hint goes, and an × closes it.
     expect(cell).toHaveAttribute('aria-pressed', 'true')
-    expect(cell.className).toMatch(/bg-accent/)
+    expect(cell.className).toMatch(/ring-accent/)
+    expect(cell.className).not.toMatch(/bg-accent/)
     expect(screen.queryByTestId('month-breakdown-hint')).not.toBeInTheDocument()
     const dialog = screen.getByRole('dialog', { name: 'March 2026, Ada Zephyr' })
     expect(dialog.textContent).toMatch(/Annual leave.*10–14 Mar.*5 days/s)

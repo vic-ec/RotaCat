@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   readMyYearSettings, leaveBucket, leaveDaysByMonth, buildMonthRow, leaveTotals, breakRanges, breakSummary,
   lieuEarnedRows, lieuBalance, lieuBalancesByProfile, shiftGroupOf, shiftCounts, onCallDates, leaveRecord,
-  leaveRecordCounts, coverForRequest, coverSummary, buildYearDays, yearWeekColumns, daysByMonth,
+  coverForRequest, coverSummary, buildYearDays, yearWeekColumns, daysByMonth,
 } from './myYear'
 
 let seq = 0
@@ -237,7 +237,6 @@ describe('leave record', () => {
     ]
     const rows = leaveRecord(requests, 2026)
     expect(rows.map(r => r.date_from)).toEqual(['2026-09-09', '2026-02-02', '2025-12-30'])
-    expect(leaveRecordCounts(rows)).toEqual({ all: 3, annual: 1, sick: 1, other: 1 })
   })
 
   it('describes the cover on the shifts a request vacated', () => {

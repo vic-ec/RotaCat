@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  annualDaysUsedInYear, totalDaysUsedInYear, pendingRequestCount, upcomingRequests,
+  annualDaysUsedInYear, pendingRequestCount, upcomingRequests,
   totalDaysInRange, annualDaysInRange, pendingRequestCountInRange, leaveTrackersForYear,
 } from './leaveDashboard'
 
@@ -78,27 +78,6 @@ describe('pendingRequestCountInRange', () => {
       '2026-04-01', '2026-06-30'
     )
     expect(count).toBe(1)
-  })
-})
-
-describe('totalDaysUsedInYear', () => {
-  it('sums inclusive days for requests fully inside the year', () => {
-    const days = totalDaysUsedInYear([{ date_from: '2026-08-10', date_to: '2026-08-14' }], 2026)
-    expect(days).toBe(5)
-  })
-
-  it('clips a request spanning into the next year to only that year\'s days', () => {
-    const days = totalDaysUsedInYear([{ date_from: '2026-12-29', date_to: '2027-01-02' }], 2026)
-    expect(days).toBe(3) // 29, 30, 31 Dec
-  })
-
-  it('excludes requests entirely outside the year', () => {
-    const days = totalDaysUsedInYear([{ date_from: '2025-06-01', date_to: '2025-06-05' }], 2026)
-    expect(days).toBe(0)
-  })
-
-  it('returns 0 for an empty list', () => {
-    expect(totalDaysUsedInYear([], 2026)).toBe(0)
   })
 })
 

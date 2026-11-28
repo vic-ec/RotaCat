@@ -25,10 +25,6 @@ export function totalDaysInRange(requests, rangeFrom, rangeTo) {
   return days
 }
 
-export function totalDaysUsedInYear(requests, year) {
-  return totalDaysInRange(requests, `${year}-01-01`, `${year}-12-31`)
-}
-
 // Sums days that actually count against the annual leave allowance within
 // [rangeFrom, rangeTo]. Prefers each request's explicit annual_leave_days
 // (the requester-entered count — a request's [date_from, date_to] can be

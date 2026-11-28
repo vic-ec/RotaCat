@@ -86,7 +86,7 @@ The spec lets an admin "type a name for a locum without an account". That is now
 | Spec section | Addition |
 |---|---|
 | 5, `shift_advertisements` | Carry the vacancy reason onto the advert (`roster_entries.vacated_reason`), so Locum cover can show "sick cover" on the card. Coarse values only: `leave`, `swap`, `no_show`, `other`. Never the leave type. |
-| 5, Hours | `entryHours` must keep the rule already in `rosterSummary.js` and `monthlyHours.js`: a shift a doctor still holds over approved leave counts for nothing (`isEntryOnLeave`). |
+| 5, Hours | `entryHours` must keep the rule already in `rosterSummary.js`: a shift a doctor still holds over approved leave counts for nothing (`isEntryOnLeave`). |
 | 6, Cancellation | When a confirmed locum is released, set `vacated_*` on the entry as the removal dialog does, so the grid shows the released locum struck through above the reopened slot. Use `vacated_reason = 'other'`. |
 | 6, Roster grid | On a published roster, tapping a locum's shift currently opens the plain picker (a locum has no leave to capture). The advert panel and "Edit times" replace that. |
 | 6 and 7, Dashboard cards | They need no refresh logic of their own; `useLiveRefresh` already reloads the dashboard. |

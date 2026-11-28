@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { monthWeekendMarkers, yearWeekendTotals, nextOpenWeekendInYear } from './weekendYearOverview'
+import { monthWeekendMarkers, nextOpenWeekendInYear } from './weekendYearOverview'
 import { saturdaysInMonth } from './weekendPlanner'
 
 const FULL = {
@@ -26,28 +26,6 @@ describe('monthWeekendMarkers', () => {
   it('treats an empty byWeekend map as every weekend red/empty', () => {
     const markers = monthWeekendMarkers(2026, 9, new Map())
     expect(markers.every(m => m.health === 'red' && m.gapCount === 4)).toBe(true)
-  })
-})
-
-describe('yearWeekendTotals', () => {
-  it('counts fully-planned/partial/empty weekends across the whole year', () => {
-    const [jan1, jan2] = saturdaysInMonth(2026, 1)
-    const byWeekend = new Map([
-      [jan1, FULL],
-      [jan2, PARTIAL],
-    ])
-    const totals = yearWeekendTotals(2026, byWeekend)
-    expect(totals.fullyPlanned).toBe(1)
-    expect(totals.partial).toBe(1)
-    expect(totals.empty).toBe(totals.total - 2)
-    expect(totals.total).toBeGreaterThan(50) // ~52 weekends/year
-  })
-
-  it('returns all-empty totals for a completely empty byWeekend map', () => {
-    const totals = yearWeekendTotals(2026, new Map())
-    expect(totals.fullyPlanned).toBe(0)
-    expect(totals.partial).toBe(0)
-    expect(totals.empty).toBe(totals.total)
   })
 })
 

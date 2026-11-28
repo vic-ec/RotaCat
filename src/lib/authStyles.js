@@ -43,10 +43,7 @@ export const AUTH_MODAL = {
   sizes: { small: 'max-w-[420px]', medium: 'max-w-[560px]' },
 }
 
-export const AUTH_LABEL = 'mb-1.5 block text-sm font-semibold text-ink'
 export const AUTH_LABEL_LG = 'mb-1.5 block text-sm font-semibold text-ink md:text-base'
-export const AUTH_SUBLABEL = 'mb-1 block text-xs font-medium text-ink-light'
-
 // Teal, underlined — rose is a brand accent, not a UI colour.
 export const AUTH_LINK = 'font-medium text-accent underline decoration-accent/45 underline-offset-4 transition-colors hover:text-accent-dark hover:decoration-accent-dark'
 // A link that must stay quiet (e.g. "Back to sign in" under a form).
@@ -73,7 +70,6 @@ export const AUTH_BUTTON_OUTLINE = 'btn-surface-secondary inline-flex items-cent
 // hairline and shadow. The header strip sits on white with the seam line
 // under it, matching the card's divider.
 export const AUTH_PANEL = 'rounded-[24px] border border-auth-shell-border bg-auth-modal shadow-auth-shell'
-export const AUTH_PANEL_HEADER = 'flex shrink-0 items-center justify-between border-b border-auth-seam px-5 py-4'
 export const AUTH_PANEL_TITLE = 'text-lg font-semibold text-ink'
 export const AUTH_CLOSE_BUTTON = 'btn-close -mr-2 h-9 w-9'
 

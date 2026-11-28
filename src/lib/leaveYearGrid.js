@@ -75,18 +75,6 @@ export const COLUMN_BADGE_LABEL = {
   Other: 'C',
 }
 
-// Full-length category name for a capacity column, for a headline that
-// reads too abbreviated at just the column's own `label` (the Annual
-// planner's mobile "Your leave" card header) — every column now already
-// matches its own `label` exactly (see LEAVE_CAPACITY_COLUMNS above), so
-// this only needs to spell out MO.
-export const COLUMN_FULL_LABEL = {
-  MO: 'Medical Officer',
-  Registrar: 'Registrar',
-  EC_Intern: 'EC Intern',
-  OT_Intern: 'OT Intern',
-}
-
 // Four-state "how full is this day" read for the mobile planner's day/month
 // fill colouring — a visual indicator of the *observed* total headcount on
 // leave (all 4 capacity columns combined, pending+approved combined).
@@ -186,15 +174,6 @@ export const LEAVE_FULL_TIME_POOL_LABEL = LEAVE_CAPACITY_COLUMNS
   .map(c => c.label)
   .join(', ')
 
-// Splits a list of column keys into "shown" (max 4) and an overflow count
-// for a 5th+ — shared by every day-glance-style cluster (LeaveYearGrid's
-// MonthGlance, MonthWorkspace's MobileDayCell) so they all agree on when to
-// switch from "every badge" to "3 badges + a +N chip".
-export function splitForOverflow(keys, max = 4) {
-  if (keys.length <= max) return { shown: keys, overflow: 0 }
-  return { shown: keys.slice(0, max - 1), overflow: keys.length - (max - 1) }
-}
-
 const LABEL_BY_CATEGORY = new Map(
   [...LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN].flatMap(col => col.categories.map(c => [c, col.label]))
 )
@@ -216,16 +195,6 @@ export function labelForLeaveCategory(category, contractType) {
 // 12 {year, month, label} entries for a calendar year.
 export function monthsForYear(year) {
   return MONTH_LABELS.map((label, i) => ({ year, month: i + 1, label }))
-}
-
-// Chunks monthsForYear into 4 quarters of 3 months each.
-export function quartersForYear(year) {
-  const months = monthsForYear(year)
-  const quarters = []
-  for (let i = 0; i < 12; i += 3) {
-    quarters.push({ index: i / 3 + 1, months: months.slice(i, i + 3) })
-  }
-  return quarters
 }
 
 // Every "YYYY-MM-DD" date in a given month, in order.

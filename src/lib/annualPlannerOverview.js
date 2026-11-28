@@ -64,43 +64,6 @@ export function monthSummaryLine({ approvedStaff = 0, pendingRequests = 0 }) {
   return parts.length ? parts.join('; ') : 'No-one on leave'
 }
 
-// The first contiguous run of pressure dates within a month (datesInRange
-// is already chronological), for the inspector's "selected date range"
-// detail — the most immediately actionable window, since that's where an
-// admin can least afford to approve one more request. Null if the month
-// has no pressure days.
-export function firstPressureRangeInMonth(year, month, pressureDates) {
-  const { start, end } = monthBounds(year, month)
-  let rangeStart = null
-  let rangeEnd = null
-  for (const date of datesInRange(start, end)) {
-    if (pressureDates.has(date)) {
-      if (!rangeStart) rangeStart = date
-      rangeEnd = date
-    } else if (rangeStart) {
-      break
-    }
-  }
-  return rangeStart ? { from: rangeStart, to: rangeEnd } : null
-}
-
-// How many days in a month sit at each combined-headcount level (1 of 3, 2
-// of 3, 3 of 3 doctors — any category — on leave, pending+approved
-// combined) — powers the inspector's combined capacity summary. A
-// read-only observed count, not a restatement of the submission-time cap
-// (see LEAVE_CAPACITY_STATES in leaveYearGrid.js for why 3 is the ceiling
-// here even though today's actual rule can allow a 4th in some cases).
-// Days with nobody on leave (0 of 3) aren't part of this breakdown.
-export function monthTotalCapacityBreakdown(year, month, countByColumnPerDate) {
-  const { start, end } = monthBounds(year, month)
-  const daysAtLevel = { 1: 0, 2: 0, 3: 0 }
-  for (const date of datesInRange(start, end)) {
-    const level = Math.min(totalLeaveSlotsForDate(date, countByColumnPerDate), 3)
-    if (level >= 1) daysAtLevel[level] += 1
-  }
-  return [1, 2, 3].map(level => ({ level, days: daysAtLevel[level] }))
-}
-
 // Maps one capacity column's own count/max on a single day to one of the 4
 // LEAVE_CAPACITY_STATES, by how full that column is *relative to its own
 // cap* — unlike capacityStateForCount (which reads a fixed 0-3 combined
@@ -134,13 +97,6 @@ export function monthCapacityMarkers(year, month, columnKey, { countByColumnPerD
       publicHolidayName: publicHolidaysByDate.get(date) || null,
     }
   })
-}
-
-// Public holidays falling within a month — the inspector's "public
-// holidays" stat for the selected month.
-export function monthPublicHolidayCount(year, month, publicHolidaysByDate) {
-  const { start, end } = monthBounds(year, month)
-  return datesInRange(start, end).filter(date => publicHolidaysByDate.has(date)).length
 }
 
 // Every distinct profile+status entry with approved or pending leave

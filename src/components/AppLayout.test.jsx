@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, within, fireEvent } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, within, fireEvent, waitFor, act } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 
 // The nav bar is the one thing on screen on every page, and its order is a
@@ -9,11 +9,23 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom'
 // NOT get.
 const authState = { profile: { id: 'me', name: 'Ada', surname: 'Doe', is_approved: true, category: 'MO' }, signOut: vi.fn(), isAdmin: false, isLocum: false, isClerk: false }
 vi.mock('../context/AuthContext', () => ({ useAuth: () => authState }))
-vi.mock('../lib/supabase', () => {
-  const builder = { select: () => builder, eq: () => builder, then: (res, rej) => Promise.resolve({ count: 0, data: [] }).then(res, rej) }
-  return { supabase: { from: () => builder, rpc: () => Promise.resolve({ data: [] }) } }
-})
+// `fromCalls` records each table read; `counts` answers a head count per table.
+const { fromCalls, counts, liveRefreshes } = vi.hoisted(() => ({ fromCalls: [], counts: {}, liveRefreshes: [] }))
+vi.mock('../lib/supabase', () => ({
+  supabase: {
+    from(table) {
+      fromCalls.push(table)
+      const builder = { select: () => builder, eq: () => builder, then: (res, rej) => Promise.resolve({ count: counts[table] || 0, data: [] }).then(res, rej) }
+      return builder
+    },
+    rpc: () => Promise.resolve({ data: [] }),
+  },
+}))
+// Captures what each render registers with useLiveRefresh, so a test can
+// run "a minute later" / "back in the app" by calling it.
+vi.mock('../lib/useLiveRefresh', () => ({ useLiveRefresh: (refresh, opts) => { liveRefreshes.push({ refresh, opts }) } }))
 const { default: AppLayout } = await import('./AppLayout')
+const { notifyBadgesChanged } = await import('../lib/navBadges')
 
 function navLabels(role) {
   Object.assign(authState, { isAdmin: false, isLocum: false, isClerk: false }, role)
@@ -119,5 +131,82 @@ describe('AppLayout swipe navigation', () => {
     const bars = screen.getAllByRole('navigation')
     fireEvent.click(within(bars[bars.length - 1]).getByRole('link', { name: 'Staff' }))
     expect(screen.getByText('StaffScreen')).toBeInTheDocument()
+  })
+})
+
+// The Staff and Planners badges (admin only): read once, then on the live
+// refresh and when an admin decides something — not on every page change.
+describe('AppLayout nav badges', () => {
+  beforeEach(() => { fromCalls.length = 0; liveRefreshes.length = 0; for (const k of Object.keys(counts)) delete counts[k] })
+
+  const BADGE_TABLES = ['profiles', 'account_change_requests', 'leave_requests']
+  const badgeReads = () => fromCalls.filter(t => BADGE_TABLES.includes(t)).length
+
+  function renderAdmin() {
+    Object.assign(authState, { isAdmin: true, isLocum: false, isClerk: false })
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route element={<AppLayout />}>
+            <Route path="/" element={<p>DashboardScreen</p>} />
+            <Route path="/roster" element={<p>RosterScreen</p>} />
+            <Route path="/staff" element={<p>StaffScreen</p>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>
+    )
+  }
+  const tab = name => {
+    const bars = screen.getAllByRole('navigation')
+    return within(bars[bars.length - 1]).getByRole('link', { name: new RegExp(name) })
+  }
+
+  it('reads the counts once and shows them', async () => {
+    counts.profiles = 2
+    counts.account_change_requests = 1
+    counts.leave_requests = 4
+    renderAdmin()
+    expect(await within(tab('Staff')).findByLabelText('3 pending')).toBeInTheDocument()
+    expect(within(tab('Planners')).getByLabelText('4 pending')).toBeInTheDocument()
+    expect(badgeReads()).toBe(3)
+  })
+
+  it('does not re-read on a page change', async () => {
+    renderAdmin()
+    await waitFor(() => expect(badgeReads()).toBe(3))
+    fireEvent.click(tab('Roster'))
+    fireEvent.click(tab('Staff'))
+    expect(screen.getByText('StaffScreen')).toBeInTheDocument()
+    await new Promise(r => setTimeout(r, 20))
+    expect(badgeReads()).toBe(3)
+  })
+
+  it('re-reads on the live refresh (once a minute / back in the app)', async () => {
+    renderAdmin()
+    await waitFor(() => expect(badgeReads()).toBe(3))
+    const live = liveRefreshes[liveRefreshes.length - 1]
+    expect(live.opts).toMatchObject({ enabled: true })
+    counts.leave_requests = 1
+    act(() => { live.refresh() })
+    expect(await within(tab('Planners')).findByLabelText('1 pending')).toBeInTheDocument()
+    expect(badgeReads()).toBe(6)
+  })
+
+  it('re-reads straight after an approve/reject, once for a burst', async () => {
+    renderAdmin()
+    await waitFor(() => expect(badgeReads()).toBe(3))
+    counts.profiles = 5
+    act(() => { notifyBadgesChanged(); notifyBadgesChanged(); notifyBadgesChanged() })
+    expect(await within(tab('Staff')).findByLabelText('5 pending')).toBeInTheDocument()
+    expect(badgeReads()).toBe(6)
+  })
+
+  it('reads nothing for a non-admin', async () => {
+    Object.assign(authState, { isAdmin: false, isLocum: false, isClerk: false })
+    render(<MemoryRouter><AppLayout /></MemoryRouter>)
+    notifyBadgesChanged()
+    await new Promise(r => setTimeout(r, 300))
+    expect(badgeReads()).toBe(0)
+    expect(liveRefreshes[liveRefreshes.length - 1].opts).toMatchObject({ enabled: false })
   })
 })

@@ -19,21 +19,6 @@ const PATTERN_SHAPES = {
 // Shapes that read better as an outline than a filled silhouette.
 const STROKE_PATTERNS = new Set(['spirals'])
 
-export const PATTERN_TYPES = [
-  { key: 'dots', label: 'Dots' },
-  { key: 'hearts', label: 'Hearts' },
-  { key: 'stars', label: 'Stars' },
-  { key: 'diamonds', label: 'Diamonds' },
-  { key: 'checkerboard', label: 'Checkerboard' },
-  { key: 'squares', label: 'Squares' },
-  { key: 'spirals', label: 'Spirals' },
-  { key: 'triangles', label: 'Triangles' },
-]
-
-export function randomPatternType() {
-  return PATTERN_TYPES[Math.floor(Math.random() * PATTERN_TYPES.length)].key
-}
-
 // Keeps the pattern in the same colour spectrum as the background — lighten
 // a dark background, darken a light one — rather than an unrelated hue, so
 // it reads as texture instead of a clashing second colour over the initials.

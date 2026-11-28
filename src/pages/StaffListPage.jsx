@@ -37,6 +37,7 @@ import { buildRequestHistory, filterRequestHistory, historyFiltersActive, EMPTY_
 import RequestRow from '../components/RequestRow'
 import PhoneIcon from '../components/icons/PhoneIcon'
 import EmailIcon from '../components/icons/EmailIcon'
+import { notifyBadgesChanged } from '../lib/navBadges'
 
 // ── Display label maps ────────────────────────
 const ROLE_LABELS = {
@@ -687,6 +688,7 @@ export default function StaffListPage() {
       alert('Could not approve account: ' + error.message)
       return false
     }
+    notifyBadgesChanged()
 
     const leaveDays = annualLeaveDaysForCategory(category)
     if (leaveDays !== null) {
@@ -717,6 +719,7 @@ export default function StaffListPage() {
       alert('Could not reject account: ' + error.message)
       return false
     }
+    notifyBadgesChanged()
     return true
   }
 
@@ -785,6 +788,7 @@ export default function StaffListPage() {
     }).eq('id', request.id)
 
     if (error) alert('Could not update request: ' + error.message)
+    else notifyBadgesChanged()
     await loadAll()
     setRequestActioningId(null)
   }
@@ -801,6 +805,7 @@ export default function StaffListPage() {
     }).eq('id', request.id)
 
     if (error) alert('Could not update request: ' + error.message)
+    else notifyBadgesChanged()
     await loadAll()
     setRequestActioningId(null)
   }

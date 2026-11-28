@@ -25,8 +25,6 @@ export const THEMES = [
   }
 ]
 
-export const THEME_IDS = THEMES.map(t => t.id)
-
 // Shared with the inline boot script in index.html, which applies the stored
 // theme before first paint so a dark-theme user never sees a flash of white.
 // The two copies have to stay in step: there is no import path into a script

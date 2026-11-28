@@ -19,24 +19,6 @@ export function monthWeekendMarkers(year, month, byWeekend) {
   })
 }
 
-// Whole-year totals — how many weekends across all 12 months of `year` are
-// fully planned, partially planned, or completely empty. Powers the year
-// overview inspector's "This year" stat block.
-export function yearWeekendTotals(year, byWeekend) {
-  let fullyPlanned = 0
-  let partial = 0
-  let empty = 0
-  for (let month = 1; month <= 12; month++) {
-    for (const saturday of saturdaysInMonth(year, month)) {
-      const health = weekendHealthState(byWeekend.get(saturday))
-      if (health === 'green') fullyPlanned += 1
-      else if (health === 'amber') partial += 1
-      else empty += 1
-    }
-  }
-  return { fullyPlanned, partial, empty, total: fullyPlanned + partial + empty }
-}
-
 // The nearest Saturday (today or later, chronological order) within `year`
 // that still has an open rotation group, or null once every remaining
 // weekend is fully staffed — same "first open weekend" concept

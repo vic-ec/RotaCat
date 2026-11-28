@@ -98,16 +98,6 @@ export function monthlyTypeKeys(doctorRotations, year) {
   return keys
 }
 
-// True if [dateFrom, dateTo] extends past the end of the rotation covering
-// dateFrom — the boundary case a leave request spanning two rotation
-// blocks needs to surface as an inline note. The whole request still gets
-// tagged with just the dateFrom rotation's column (never split
-// day-by-day); this only flags it for display.
-export function straddlesRotationBoundary(rotations, dateFrom, dateTo) {
-  const current = rotationForDate(rotations, dateFrom)
-  return Boolean(current) && current.end_date !== null && dateTo > current.end_date
-}
-
 // The inline note LeaveRequestForm shows when a requested range straddles
 // a rotation boundary — null when it doesn't (or there's no current
 // rotation to straddle from). The request itself still gets tagged with

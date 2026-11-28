@@ -15,29 +15,6 @@ export const AVATAR_COLOR_PALETTE = [
 
 export const NEUTRAL_AVATAR_COLOR = '#CBD5E1'
 
-// Darker shades used as a placeholder fill for profiles with no uploaded
-// photo — picked deterministically per profile (a stable hash of their id,
-// not re-randomized on every render) so the same person always gets the
-// same placeholder, while different people land on visibly different hues.
-const PLACEHOLDER_AVATAR_COLORS = [
-  '#1E40AF', // blue
-  '#991B1B', // red
-  '#854D0E', // yellow
-  '#166534', // green
-  '#9A3412', // orange
-  '#3730A3', // indigo
-  '#5B21B6', // violet
-]
-
-export function placeholderAvatarColor(id) {
-  if (!id) return PLACEHOLDER_AVATAR_COLORS[0]
-  let hash = 0
-  for (let i = 0; i < id.length; i++) {
-    hash = (hash * 31 + id.charCodeAt(i)) | 0
-  }
-  return PLACEHOLDER_AVATAR_COLORS[Math.abs(hash) % PLACEHOLDER_AVATAR_COLORS.length]
-}
-
 export function randomAvatarColor() {
   return AVATAR_COLOR_PALETTE[Math.floor(Math.random() * AVATAR_COLOR_PALETTE.length)]
 }
@@ -76,16 +53,6 @@ export function hslToHex(h, s, l) {
   else { r = c; g = 0; b = x }
   const toHex = v => Math.round((v + m) * 255).toString(16).padStart(2, '0')
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`
-}
-
-// Desaturates + normalizes lightness of a person's identity colour into a
-// muted, always-white-text-legible tone for the flat avatar fill — keeps
-// each person visually distinct without the vivid, high-saturation look the
-// picker palette uses for its own swatches.
-export function mutedAvatarColor(hex) {
-  if (!hex || hex.length < 7) return '#94A3B8'
-  const { h, s } = hexToHsl(hex)
-  return hslToHex(h, Math.min(s, 38), 42)
 }
 
 // Picks readable ink (dark) or white text against an arbitrary hex background —

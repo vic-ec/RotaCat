@@ -1,5 +1,4 @@
 import ProfileAvatar from './ProfileAvatar'
-import Tag from './Tag'
 import SectionLabel from './SectionLabel'
 import { LeaveDateRange } from './DateCard'
 import { naturalLeavePeriodLabel } from '../lib/leaveRequests'
@@ -29,7 +28,7 @@ export default function LeaveRequestSummary({
         <ProfileAvatar profile={{ id: request.profile_id, ...request.profiles }} size={40} />
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-ink">{fullName}</p>
-          {categoryLabel && <Tag variant="role" className="mt-1">{categoryLabel}</Tag>}
+          {categoryLabel && <p className="mt-0.5 truncate text-xs text-ink-muted">{categoryLabel}</p>}
         </div>
       </div>
 

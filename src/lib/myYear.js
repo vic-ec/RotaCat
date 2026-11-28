@@ -362,12 +362,6 @@ export function leaveRecord(requests, year) {
     .sort((a, b) => b.date_from.localeCompare(a.date_from) || b.date_to.localeCompare(a.date_to))
 }
 
-export function leaveRecordCounts(rows) {
-  const counts = { all: rows.length, annual: 0, sick: 0, other: 0 }
-  for (const r of rows) counts[leaveBucket(r.leave_type)] += 1
-  return counts
-}
-
 // Who is on a shift this person came off, or still holds while on leave.
 //   not_covered  nobody: still on it (struck through), or no cover wanted
 //   open_locum   an open locum slot

@@ -151,64 +151,6 @@ export function computeIncludesPublicHoliday(dateFrom, dateTo, publicHolidayDate
   return datesInRange(dateFrom, dateTo).some(d => phSet.has(d))
 }
 
-const WEEKDAY_ABBR = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-
-function formatDDDddMMMYYYY(dateStr) {
-  const d = parseLocalDate(dateStr)
-  return `${WEEKDAY_ABBR[d.getDay()]} ${d.getDate()} ${MONTH_ABBR[d.getMonth()]} ${d.getFullYear()}`
-}
-
-// Day-of-week + bare date, no month/year — the compact half of a same-month
-// range below (e.g. "Sat 3" in "Sat 3 - Sun 11 Oct 2026").
-function formatDDDdd(dateStr) {
-  const d = parseLocalDate(dateStr)
-  return `${WEEKDAY_ABBR[d.getDay()]} ${d.getDate()}`
-}
-
-// "Sat 15 Aug 2026" (just the one date, unrepeated, for a single-day
-// request); "Sat 3 - Sun 11 Oct 2026" when both dates share a month and
-// year (month/year stated once, at the end, not repeated on the first
-// date); "Sat 29 Aug 2026 - Wed 2 Sep 2026" otherwise (a dash, not the
-// word "to", between two fully-spelled-out dates) — plus a second summary
-// line counting weekends, Saturdays, Sundays, and public holidays the
-// range touches — detail a plain YYYY-MM-DD → YYYY-MM-DD range doesn't
-// surface, e.g. "does approving this also grant a public holiday, or span
-// two weekends unnecessarily." A "weekend" here means a Saturday in the
-// range whose very next day (Sunday) is also in the range — a lone
-// trailing/leading Saturday or Sunday still counts toward the
-// Saturday/Sunday tallies but not the weekend one.
-export function formatRequestDateRange(dateFrom, dateTo, publicHolidayDates = []) {
-  let rangeLabel
-  if (dateFrom === dateTo) {
-    rangeLabel = formatDDDddMMMYYYY(dateFrom)
-  } else {
-    const from = parseLocalDate(dateFrom)
-    const to = parseLocalDate(dateTo)
-    const sameMonth = from.getFullYear() === to.getFullYear() && from.getMonth() === to.getMonth()
-    rangeLabel = sameMonth
-      ? `${formatDDDdd(dateFrom)} - ${formatDDDddMMMYYYY(dateTo)}`
-      : `${formatDDDddMMMYYYY(dateFrom)} - ${formatDDDddMMMYYYY(dateTo)}`
-  }
-
-  const phSet = publicHolidayDates instanceof Set ? publicHolidayDates : new Set(publicHolidayDates)
-  const dates = datesInRange(dateFrom, dateTo)
-  const dateSet = new Set(dates)
-  const satCount = dates.filter(d => dayOfWeek(d) === 6).length
-  const sunCount = dates.filter(d => dayOfWeek(d) === 0).length
-  const weekendCount = dates.filter(d => dayOfWeek(d) === 6 && dateSet.has(addDays(d, 1))).length
-  const phCount = dates.filter(d => phSet.has(d)).length
-
-  const parts = []
-  if (weekendCount > 0) parts.push(`${weekendCount} weekend${weekendCount === 1 ? '' : 's'}`)
-  if (satCount > 0) parts.push(`${satCount} Saturday${satCount === 1 ? '' : 's'}`)
-  if (sunCount > 0) parts.push(`${sunCount} Sunday${sunCount === 1 ? '' : 's'}`)
-  if (phCount > 0) parts.push(`${phCount} Public Holiday${phCount === 1 ? '' : 's'}`)
-  const extraLine = parts.length ? `${parts.join(', ')} included` : null
-
-  return { rangeLabel, extraLine }
-}
-
 // A short "N total (M annual)" qualifier for any leave_requests row where
 // leave_type is 'annual' and annual_leave_days is present — distinguishing
 // the total unavailable-for-rostering period from the days that actually
@@ -219,16 +161,6 @@ export function annualDaysSummary({ leave_type: leaveType, date_from: dateFrom, 
   if (leaveType !== 'annual' || annualLeaveDays == null) return null
   const totalDays = datesInRange(dateFrom, dateTo).length
   return `${totalDays} total day${totalDays === 1 ? '' : 's'} (${annualLeaveDays} annual leave)`
-}
-
-// Same underlying numbers as annualDaysSummary, worded for the approval
-// queue's row layout ("N days total - (M as annual leave)") — kept as its
-// own export rather than reusing annualDaysSummary's text so that page's
-// existing wording (and its tests) aren't disturbed elsewhere.
-export function approvalDaysTotalLine({ leave_type: leaveType, date_from: dateFrom, date_to: dateTo, annual_leave_days: annualLeaveDays }) {
-  if (leaveType !== 'annual' || annualLeaveDays == null) return null
-  const totalDays = datesInRange(dateFrom, dateTo).length
-  return `${totalDays} day${totalDays === 1 ? '' : 's'} total - (${annualLeaveDays} as annual leave)`
 }
 
 const LEAVE_PERIOD_MONTH_FORMAT = { month: 'long' }
@@ -532,19 +464,6 @@ export function findWorstSpecialLeavePressure({ dateFrom, dateTo, byDate, profil
   return worst ? { ...worst, softCap, overSoftCap: worst.count >= softCap } : null
 }
 
-// Whole-year count of dates where DISTINCT doctors present in `byDate`
-// meet or exceed `softCap` — the actual number behind the "no more than 3
-// doctors..." guideline sentence, for SpecialLeavePlanner's year view.
-// Shares `profileIdOf`/`softCap` semantics with findWorstSpecialLeavePressure
-// above; the caller is responsible for `byDate` already containing only
-// the entries that should count (e.g. SPECIAL_LEAVE_TYPES rows).
-export function countSpecialLeavePressureDaysInYear({ year, byDate, profileIdOf = e => e.profile_id, softCap = SPECIAL_LEAVE_SOFT_CAP }) {
-  return datesInRange(`${year}-01-01`, `${year}-12-31`).filter(date => {
-    const count = new Set((byDate.get(date) || []).map(profileIdOf)).size
-    return count >= softCap
-  }).length
-}
-
 // Read-only, flag-only counterpart for special leave — there is no
 // `checkSpecialLeaveCapacity` to mirror, since the ≤3-doctors guideline is
 // deliberately not enforced yet (see SPECIAL_LEAVE_SOFT_CAP above). Never
@@ -612,21 +531,6 @@ export async function fetchLeaveCaptureCandidates() {
       .order('surname', { ascending: true })
     if (error) return []
     return data || []
-  } catch {
-    return []
-  }
-}
-
-// The dates in a range on which a doctor already holds a roster shift. An
-// admin capturing leave is warned about these rather than blocked: sick leave
-// logged after the fact nearly always lands on a shift the doctor was meant
-// to work. Never throws.
-export async function fetchRosterOverlapDates({ profileId, dateFrom, dateTo }) {
-  try {
-    const { data, error } = await supabase
-      .from('roster_entries').select('date').eq('profile_id', profileId).gte('date', dateFrom).lte('date', dateTo)
-    if (error) return []
-    return [...new Set((data || []).map(e => e.date?.slice(0, 10)).filter(Boolean))].sort()
   } catch {
     return []
   }

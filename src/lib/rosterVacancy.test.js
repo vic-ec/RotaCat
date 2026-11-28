@@ -4,7 +4,6 @@ vi.mock('./supabase', () => ({ supabase: {} }))
 
 import { findSameDayConflict, entryAbsence, absenceSummary, isEntryOnLeave, VACANCY_LEAVE_TYPE_OPTIONS, isNoCoverRow, NO_COVER_PATCH, entrySnapshot } from './rosterVacancy'
 import { mergeLeaveRanges, leaveRangeOn } from './approvedLeave'
-import { rosterChangeDetail } from './changeLog'
 
 describe('findSameDayConflict', () => {
   it('finds a different entry for the same doctor on the same date', () => {
@@ -130,20 +129,6 @@ describe('mergeLeaveRanges', () => {
 
   it('falls back to the visible rows alone when the RPC gave nothing', () => {
     expect(mergeLeaveRanges(null, visible)).toEqual({ 'doc-a': MERGED['doc-a'] })
-  })
-})
-
-describe('rosterChangeDetail — reason', () => {
-  const names = new Map([['doc-a', 'Sam Rivers'], ['doc-b', 'Bob Brown']])
-  const base = { entry_date: '2026-11-20', shift_code: 'WD_08', profile_id_before: 'doc-a' }
-
-  it('appends why a doctor came off a shift, and nothing for an ordinary edit', () => {
-    expect(rosterChangeDetail({ ...base, action: 'assign', profile_id_after: 'doc-b', reason: 'leave', note: 'Sick leave' }, names))
-      .toMatch(/Sam Rivers → Bob Brown — reason: Sick leave$/)
-    expect(rosterChangeDetail({ ...base, action: 'unassign', reason: 'no_show', note: 'Did not answer' }, names))
-      .toMatch(/— reason: no-show \(Did not answer\)$/)
-    expect(rosterChangeDetail({ ...base, action: 'unassign', reason: 'swap' }, names)).toMatch(/— reason: swap$/)
-    expect(rosterChangeDetail({ ...base, action: 'assign', profile_id_after: 'doc-b' }, names)).not.toMatch(/reason/)
   })
 })
 

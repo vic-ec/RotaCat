@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 
 vi.mock('./supabase', () => ({ supabase: {} }))
 
-const { buildAttentionItems, countUnderMinimum, nextMonthOf, shiftsOnLeave } = await import('./adminAttention')
+const { buildAttentionItems, nextMonthOf, shiftsOnLeave } = await import('./adminAttention')
 
 // December 2026 has four Saturdays: 5, 12, 19, 26.
 const DEC_SATURDAYS = ['2026-12-05', '2026-12-12', '2026-12-19', '2026-12-26']
@@ -72,15 +72,6 @@ describe('buildAttentionItems', () => {
     })
     expect(items.find(i => i.key === 'signups').label).toBe('sign-up awaiting approval')
     expect(items.find(i => i.key === 'account-requests').label).toBe('account change requests to review')
-  })
-})
-
-describe('countUnderMinimum', () => {
-  it('counts doctors below their month minimum, ignoring anyone with none', () => {
-    const profiles = [{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }]
-    const minimums = new Map([['a', { minimum: 210 }], ['b', { minimum: 210 }], ['c', { minimum: 0 }]])
-    const hoursByProfile = new Map([['a', 204], ['b', 210], ['c', 0], ['d', 0]])
-    expect(countUnderMinimum({ profiles, hoursByProfile, minimums })).toBe(1)
   })
 })
 

@@ -417,11 +417,9 @@ export default function DashboardPage() {
     setLoading(false)
   }
 
-  // Admin: counts first, names second. The two "needs attention" numbers are
-  // work queues (pending approvals, hours ceilings); team leave is awareness.
-  // The hours count reads the same live roster_entries figures the Hours
-  // Summary shows (monthlyHours.js) — monthly_stats has no rows yet, so
-  // nothing here reads it.
+  // Admin: counts first, names second. The "needs attention" numbers are
+  // work queues (pending approvals and the rest of lib/adminAttention.js);
+  // team leave is awareness. Hours warnings are not here (see below).
   async function loadAdminWidgets({ silent = false } = {}) {
     if (!silent) setLoading(true)
     const today = todayStr()

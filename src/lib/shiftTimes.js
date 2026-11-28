@@ -14,19 +14,8 @@ export function timeToMinutes(time) {
   return h * 60 + (m || 0)
 }
 
-export function minutesToTime(minutes) {
-  return `${pad(Math.floor(minutes / 60) % 24)}:${pad(minutes % 60)}:00`
-}
-
 export function hasTimeOverride(entry) {
   return Boolean(entry?.start_time_override && entry?.end_time_override)
-}
-
-// { start, end, adjusted } as "HH:MM:SS", from the row's own times when it
-// has them, else the shift type's.
-export function effectiveTimes(entry, shiftType) {
-  if (hasTimeOverride(entry)) return { start: entry.start_time_override, end: entry.end_time_override, adjusted: true }
-  return { start: shiftType?.start_time ?? null, end: shiftType?.end_time ?? null, adjusted: false }
 }
 
 // Hours between two clock times, rolling past midnight when the end is not

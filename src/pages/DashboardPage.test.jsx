@@ -10,11 +10,6 @@ vi.mock('../context/AuthContext', () => ({
   useAuth: () => mockAuth,
 }))
 
-vi.mock('../lib/monthlyHours', () => ({
-  getDashboardHoursWarnings: vi.fn(),
-}))
-import { getDashboardHoursWarnings } from '../lib/monthlyHours'
-
 vi.mock('../lib/adminAttention', () => ({
   fetchAdminAttention: vi.fn().mockResolvedValue([]),
 }))
@@ -66,7 +61,6 @@ describe('DashboardPage', () => {
     eqCalls.length = 0
     updateCalls.length = 0
     for (const key of Object.keys(mockResponses)) delete mockResponses[key]
-    getDashboardHoursWarnings.mockReset()
   })
   afterEach(() => vi.useRealTimers())
 
@@ -268,7 +262,6 @@ describe('DashboardPage', () => {
     mockAuth = { profile: { id: 'admin-1', name: 'Admin' }, isAdmin: true }
     mockResponses['leave_requests:count'] = { count: 3, error: null }
     mockResponses['profiles:select'] = { data: [{ id: 'p1', name: 'Nadia', surname: 'Bennett', contract_type: 'five_eighths' }], error: null }
-    getDashboardHoursWarnings.mockResolvedValue([{ profileId: 'p1', name: 'Nadia', surname: 'Bennett', hours: 122, ceiling: 118 }])
 
     renderDashboard()
 
@@ -281,7 +274,6 @@ describe('DashboardPage', () => {
 
   it('admin: lists the other attention rows, each a link, with a dot where a row has no count', async () => {
     mockAuth = { profile: { id: 'admin-1', name: 'Admin' }, isAdmin: true }
-    getDashboardHoursWarnings.mockResolvedValue([])
     fetchAdminAttention.mockResolvedValueOnce([
       { key: 'signups', count: 2, to: '/staff?tab=pending', label: 'sign-ups awaiting approval' },
       { key: 'next-roster-draft', to: '/roster/dec', label: "December's roster is still a draft" },
@@ -309,7 +301,6 @@ describe('DashboardPage', () => {
       ],
       error: null,
     }
-    getDashboardHoursWarnings.mockResolvedValue([])
 
     renderDashboard()
 
@@ -339,7 +330,6 @@ describe('DashboardPage', () => {
 
   it('admin: keeps both headings, with the empty messages inside their cards', async () => {
     mockAuth = { profile: { id: 'admin-1', name: 'Admin' }, isAdmin: true }
-    getDashboardHoursWarnings.mockResolvedValue([])
 
     renderDashboard()
 
@@ -406,7 +396,6 @@ describe('DashboardPage', () => {
 describe('DashboardPage — Log late arrival', () => {
   it('admin: a button on the Needs attention heading opens the form with nothing but today filled in', async () => {
     mockAuth = { profile: { id: 'admin-1', name: 'Admin' }, isAdmin: true }
-    getDashboardHoursWarnings.mockResolvedValue([])
     renderDashboard()
     const button = await screen.findByRole('button', { name: 'Log late arrival' })
     // Above the Needs attention heading, not on it.
@@ -419,7 +408,6 @@ describe('DashboardPage — Log late arrival', () => {
 
   it('admin: Capture leave sits beside Log late arrival and opens the capture form', async () => {
     mockAuth = { profile: { id: 'admin-1', name: 'Admin' }, isAdmin: true }
-    getDashboardHoursWarnings.mockResolvedValue([])
     renderDashboard()
     const capture = await screen.findByRole('button', { name: 'Capture leave' })
     expect(capture.parentElement).toBe(screen.getByRole('button', { name: 'Log late arrival' }).parentElement)

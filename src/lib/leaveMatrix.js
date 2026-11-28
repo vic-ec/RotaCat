@@ -56,11 +56,6 @@ export function leaveTypeGroupKey(leaveType) {
   return LEAVE_TYPE_TO_GROUP[leaveType] || 'weekend'
 }
 
-// The colour a leave type is drawn in everywhere: its group's.
-export function leaveTypeColor(leaveType) {
-  return LEAVE_GROUP_COLOR[leaveTypeGroupKey(leaveType)]
-}
-
 // The same colour as *ink* — for an icon or text on a surface rather than a
 // solid fill. A CSS variable (index.css, --leave-ink-*), so the night theme
 // can lift it to something readable on a dark card.

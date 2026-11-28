@@ -1,7 +1,7 @@
 // Leave-request submission — pure validation helpers (unit-testable without
 // Supabase) plus the async submission flow that wires them together.
 import { supabase } from './supabase'
-import { addDays, datesInRange, rangesOverlap, dayOfWeek, parseLocalDate, formatShortDateRange } from './dateRange'
+import { addDays, datesInRange, rangesOverlap, dayOfWeek, parseLocalDate, formatShortDateRange, todayStr } from './dateRange'
 import { overlapsPlannedWeekend, groupEntriesByWeekend, weekendCoverageSummary, weekendHealthState } from './weekendPlanner'
 import {
   LEAVE_CAPACITY_COLUMNS, LEAVE_FULL_TIME_GROUP_KEYS, LEAVE_FULL_TIME_POOL_LABEL, LEAVE_CAPACITY_STATES, buildLeaveByDate,
@@ -590,11 +590,6 @@ export async function fetchWeekendExceptionPreview({ saturday }) {
   } catch {
     return null
   }
-}
-
-function todayStr() {
-  const n = new Date()
-  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`
 }
 
 // Who an admin can capture leave for: every approved doctor, active or not

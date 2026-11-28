@@ -68,8 +68,6 @@ export function coverPatch(cover) {
   return { profile_id: cover.id, is_locum: false, locum_name: null, locum_contact_id: null, ...CLEAR_FLAGS }
 }
 
-export const fullName = p => `${p?.name || ''} ${p?.surname || ''}`.trim()
-
 // The profile id a cover puts on the entry — null for a contact, which
 // has none yet.
 export const coverProfileId = cover => (cover.kind === 'contact' ? null : cover.id)

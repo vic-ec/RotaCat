@@ -7,6 +7,7 @@ import { addDays, formatLocalDate } from './dateRange'
 import { applyTimeOverrides } from './shiftTimes'
 import { isOpenLocumSlot, locumDisplayName } from './locumCover'
 import { fetchLateArrivalsInRange } from './lateArrivals'
+import { fullName } from './doctorNames'
 
 function windowOf(date, startTime, endTime) {
   const start = new Date(`${date}T${startTime}`)
@@ -14,8 +15,6 @@ function windowOf(date, startTime, endTime) {
   if (endTime <= startTime) end = new Date(end.getTime() + 86400000)
   return { start, end }
 }
-
-const fullName = p => `${p?.name || ''} ${p?.surname || ''}`.trim()
 
 export function initialsOf(name) {
   const words = String(name || '').replace(/[[\]]/g, ' ').trim().split(/\s+/).filter(Boolean)

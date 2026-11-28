@@ -13,6 +13,7 @@ import { reviewStatusLabel } from '../../lib/statusLabels'
 import { coverForRequest, coverSummary, isCountedLeave } from '../../lib/myYear'
 import { rosterLinkForDate } from '../../lib/myYearData'
 import { leaveDestination } from '../../lib/myYearLinks'
+import { plural } from '../../lib/text'
 
 const PHONE_LIMIT = 5
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
@@ -26,8 +27,6 @@ function monthsOf(r) {
   while (y < ey || (y === ey && m <= em)) { out.add(String(m).padStart(2, '0')); m += 1; if (m > 12) { m = 1; y += 1 } }
   return out
 }
-const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
-
 // `?request=<id>` (a link to one request, e.g. a sick day from the
 // Overview): the list shows in full, scrolls to that request and rings it.
 // `leading` (the page's one action, e.g. Capture leave) and `controls` (the

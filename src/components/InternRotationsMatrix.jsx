@@ -17,7 +17,7 @@ import Toolbar from './Toolbar'
 import FloatingActionMenu from './FloatingActionMenu'
 import DateStepper from './DateStepper'
 import RotationSequenceRow, { MonthLetterHeader } from './RotationSequenceRow'
-import { rotationForDate, groupRotationsByDoctorId, activeRotationStatus, monthSpan } from '../lib/internRotations'
+import { rotationForDate, groupRotationsByDoctorId, activeRotationStatus, monthSpan, CATEGORY_GROUP_ORDER, categoryGroupKey } from '../lib/internRotations'
 import {
   ROTATION_TYPE_KEY_OPTIONS, rotationTypeKey, rotationTypeOptionsForCategory, rotationTypeLabel, rotationTypeShortName,
   ROTATION_TYPE_COLOR,
@@ -36,12 +36,9 @@ import { useFillToViewport } from '../lib/useFillToViewport'
 const MIN_MONTH_COL_WIDTH = 56 // px
 const LABEL_COL_WIDTH = 200 // px — room for the name and the rotation line under it
 
-// COSMO was retired as a separate staff_category in Aug 2026 (folded into
-// Intern — see InternRotationsPlanner.jsx) so this page's doctor pool is
-// only ever Intern/Registrar now. A doctor never moves section when their
-// current rotation changes — their category decides it, once, same as the
-// Staff list's own category grouping.
-const CATEGORY_GROUP_ORDER = ['Intern', 'Registrar']
+// Sections are Intern then Registrar (CATEGORY_GROUP_ORDER and
+// categoryGroupKey, shared with the Rotation status table, live in
+// lib/internRotations.js with the reasoning).
 const CATEGORY_GROUP_LABEL = { Intern: 'Interns', Registrar: 'Registrars' }
 const CATEGORY_FILTER_OPTIONS = [
   { value: 'all', label: 'All categories' },
@@ -111,10 +108,6 @@ function activeChipAndLine(doctorRotations, year, today) {
     default:
       return { chip: { tone: 'neutral', text: 'No rotation' }, line: 'No rotation scheduled' }
   }
-}
-
-function categoryGroupKey(doctor) {
-  return CATEGORY_GROUP_ORDER.includes(doctor.category) ? doctor.category : 'Intern'
 }
 
 function matchesSearch(doctor, search) {

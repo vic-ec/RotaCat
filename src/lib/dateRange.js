@@ -114,3 +114,9 @@ export function todayStr() {
   const n = new Date()
   return formatLocalDate(n)
 }
+
+// "14 Aug" — day and short month, no weekday or year (the weekend year
+// overviews' week labels).
+export function formatShortDate(dateStr) {
+  return parseLocalDate(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+}

@@ -2,14 +2,7 @@ import { useRef } from 'react'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { useSwipeToDismiss } from '../lib/useSwipeToDismiss'
 import { useBodyScrollLock } from '../lib/useBodyScrollLock'
-
-function CloseIcon(props) {
-  return (
-    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M6 6l12 12M18 6L6 18" />
-    </svg>
-  )
-}
+import { X as CloseIcon } from 'lucide-react'
 
 // Shared form/modal shell — centered 520px card on desktop, a genuine
 // bottom sheet below 768px (capped at 85vh, rounded top corners, square

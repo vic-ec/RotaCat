@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabase'
 import RotaCat from '../components/RotaCat'
 import ProfileAvatar, { StatusPicker } from '../components/ProfileAvatar'
 import { CATEGORY_LABELS } from '../lib/categoryLabels'
+import LogoutIcon from './icons/LogoutIcon'
 
 // ── Nav sets per role ──────────────────────────────────────
 // Each role sees a tailored nav — preserving the original
@@ -406,13 +407,6 @@ function ShiftIcon(props) {
   return (
     <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-    </svg>
-  )
-}
-function LogoutIcon(props) {
-  return (
-    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" />
     </svg>
   )
 }

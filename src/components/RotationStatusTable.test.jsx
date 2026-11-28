@@ -199,3 +199,47 @@ describe('RotationStatusTable — completed', () => {
     expect(handlers.onReactivate).not.toHaveBeenCalled()
   })
 })
+
+describe('RotationStatusTable — toolbar and panel match the Active tab', () => {
+  async function openFilter(user) {
+    await user.click(screen.getAllByRole('button', { name: 'Filter' })[0])
+    return screen.getByRole('menu')
+  }
+
+  it('Filter → Registrar narrows Upcoming to registrars', async () => {
+    const user = userEvent.setup()
+    renderTable()
+    const menu = await openFilter(user)
+    await user.click(within(menu).getByRole('checkbox', { name: 'Registrar' }))
+    expect(screen.getByTitle('Thandi Mokoena')).toBeInTheDocument()
+    expect(screen.queryByTitle('Sipho Dlamini')).not.toBeInTheDocument()
+  })
+
+  it('an OT placement matches on any rotation on record, not just the displayed year\'s', async () => {
+    const user = userEvent.setup()
+    const psychIntern = { id: 'int-3', name: 'Ayanda', surname: 'Ngcobo', category: 'Intern', scheduled_active_date: '2027-03-01' }
+    renderTable({
+      doctors: [...UPCOMING_DOCTORS, psychIntern],
+      rotations: [...UPCOMING_ROTATIONS, { id: 'r9', doctor_id: 'int-3', rotation_type: 'OT', subtype: 'PSYCH', start_date: '2028-01-01', end_date: '2028-04-30' }],
+      year: 2027,
+    })
+    const menu = await openFilter(user)
+    await user.click(within(menu).getByRole('checkbox', { name: 'Psych' }))
+    expect(screen.getByTitle('Ayanda Ngcobo')).toBeInTheDocument()
+    expect(screen.queryByTitle('Sipho Dlamini')).not.toBeInTheDocument() // no rotations at all
+  })
+
+  it('the year leads the side panel; Legend and More sit right after Filter; no inline legend', () => {
+    renderTable()
+    const aside = screen.getByRole('complementary')
+    const yearLabel = within(aside).getByText('2027')
+    expect(yearLabel.compareDocumentPosition(within(aside).getByText('Upcoming')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    const filter = screen.getAllByRole('button', { name: 'Filter' })[0]
+    const legend = screen.getAllByRole('button', { name: 'Legend' })[0]
+    const more = screen.getAllByRole('button', { name: 'More actions' })[0]
+    expect(filter.compareDocumentPosition(legend) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(legend.compareDocumentPosition(more) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.queryByText('OT · TB Hospital')).not.toBeInTheDocument()
+  })
+})
